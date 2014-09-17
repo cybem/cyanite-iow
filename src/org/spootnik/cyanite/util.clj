@@ -14,11 +14,36 @@
            (error e (or (.getMessage e)
                         "Exception while processing channel message")))))))
 
+(defn map-vals
+  "Given a map and a function, returns the map resulting from applying
+  the function to each value."
+  [m f]
+  (zipmap (keys m) (map f (vals m))))
+
+(defn map-kv
+  "Given a map and a function of two arguments, returns the map
+  resulting from applying the function to each of its entries. The
+  provided function must return a pair (a two-element sequence.)"
+  [m f]
+  (into {} (map (fn [[k v]] (f k v)) m)))
+
+(defn parse-regex [k v] [(-> k
+                             (clojure.string/replace "." "\\.")
+                             (clojure.string/replace "*" ".*?")
+                             (clojure.string/replace #"<([a-z]+)>" "(?<$1>.*?)")
+                             (re-pattern))
+                         (-> v (clojure.string/replace #"<([a-z]+)>" "\\${$1}"))])
+
+(defn convert-regex [regex-map]
+  (map-kv regex-map parse-regex))
+
+(comment "Counters are predefined to fill graphs with 0s")
+
 (def counters (atom { :index.create 0
                       :index.get_error 0
                       :store.success 0
                       :store.error 0
-                      :metrics_recieved 0}))
+                      :metrics_received 0}))
 
 (defn counter-get [key]
   (or (get @counters key) 0))
@@ -30,11 +55,20 @@
   (swap! counters update-in [key] (fn [n] (if n (+ n val) val))))
 
 (defn counters-reset! []
-  (reset! counters { :index.create 0
-                     :index.get_error 0
-                     :store.success 0
-                     :store.error 0
-                     :metrics_recieved 0}))
+  (reset! counters (into {} (map (fn [[k _]] {k 0}) @counters))))
+
+(comment "Aggregation config is an atom map {tenant {regex-match regex-replace ...}")
+
+(def aggregator-patterns (atom {}))
+
+(defn get-aggregator-patterns [tenant]
+  (or (get @aggregator-patterns (keyword tenant)) nil))
+
+(defn list-aggregator-patterns []
+  @aggregator-patterns)
+
+(defn set-aggregator-patterns! [tenant pattern-map]
+  (swap! aggregator-patterns update-in [(keyword tenant)] (fn [_] (convert-regex pattern-map))))
 
 (defmacro go-catch
   [& body]

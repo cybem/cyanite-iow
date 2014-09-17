@@ -109,6 +109,24 @@
       (dissoc :data)
       (assoc :metric data)))
 
+(defmethod aggregate-with :avg
+           [_ {:keys [data] :as metric}]
+  (if (seq data)
+    (-> metric
+        (dissoc :data)
+        (assoc :metric (/ (reduce + 0.0 data) (count data))))
+    metric))
+
+;;
+;; if no method given parse metric name and select aggregation function
+;;
+(defn detect-aggregate
+  [{:keys [path] :as metric}]
+  (if-let [[_ m] (re-find #"^(sum|avg|mean|min|max|raw)\..*" path)]
+    (aggregate-with (keyword m) metric)
+    (aggregate-with :mean metric)))
+
+
 (defn max-points
   "Returns the maximum number of points to expect for
    a given resolution, time range and number of paths"
@@ -161,6 +179,7 @@
              (try
                (let [values (map
                              #(let [{:keys [metric tenant path time rollup period ttl]} %]
+                               (counter-inc! (keyword (str "tenants." tenant ".write_count")) 1)
                                 [(int ttl) [metric] tenant (int rollup) (int period) path time])
                              payload)]
                  (alia/execute-async
@@ -189,7 +208,7 @@
                                  {:values [paths tenant (int rollup) (int period)
                                            from to]
                                   :fetch-size Integer/MAX_VALUE})
-                                (map (partial aggregate-with (keyword agg)))
+                                (map detect-aggregate)
                                 (seq)))]
           (let [min-point  (:time (first data))
                 max-point  (-> to (quot rollup) (* rollup))

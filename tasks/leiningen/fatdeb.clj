@@ -81,6 +81,8 @@
     (write (file dir "DEBIAN" "control") (control project))
     (write (file dir "DEBIAN" "conffiles")
            (join "\n" ["/etc/cyanite.yaml"
+                       "/etc/cyanite/cyanite.yaml"
+                       "/etc/cyanite/"
                        "/etc/init.d/cyanite"
                        "/etc/default/cyanite"]))
 
@@ -125,10 +127,12 @@
     (.mkdirs (file dir "var" "log" "cyanite"))
 
     ; Config
-    (.mkdirs (file dir "etc"))
+    (.mkdirs (file dir "etc" "cyanite"))
     (copy (file (:root project) "doc" "cyanite.yaml")
-          (file dir "etc" "cyanite.yaml"))
-
+          (file dir "etc" "cyanite" "cyanite.yaml"))
+    ; Aggregator config
+    (copy (file (:root project) "doc" "aggregator.yaml")
+          (file dir "etc" "cyanite" "aggregator.yaml"))
     ; defaults file
     (.mkdirs (file dir "etc" "default"))
     (copy (file (:root project) "pkg" "deb" "cyanite.default")

@@ -7,6 +7,14 @@ carbon:
       rollup: 10
     - period: 105120
       rollup: 600
+#aggregator:
+#  enabled: false
+#  path: "/etc/cyanite/aggregator.yaml"
+#stats:
+#  interval: 60
+#  tenant: "NONE"
+#  hostname: "localhost"
+#  console: false
 http:
   host: "0.0.0.0"
   port: 8080
@@ -18,3 +26,10 @@ logging:
 store:
   cluster: 'localhost'
   keyspace: 'metric'
+#  chan_size: 10000
+#  batch_size: 100
+#index:
+#  use: "org.spootnik.cyanite.es_path/es-rest"
+#  index: "cyanite_paths"
+#  chan_size 10000
+#  batch_size 300

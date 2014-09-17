@@ -5,13 +5,24 @@
             [org.spootnik.cyanite.store :as store]
             [org.spootnik.cyanite.path  :as path]
             [org.spootnik.cyanite.tcp   :as tc]
-            [org.spootnik.cyanite.util  :refer [partition-or-time counter-get counters-reset! counter-inc! counter-list]]
+            [org.spootnik.cyanite.util  :refer [partition-or-time get-aggregator-patterns
+                                                counter-get counter-list counters-reset!
+                                                counter-inc!]]
             [clojure.tools.logging      :refer [info debug]]
             [gloss.core                 :refer [string]]
             [lamina.core                :refer :all]
             [clojure.core.async :as async :refer [<! >! >!! go chan timeout]]))
 
 (set! *warn-on-reflection* true)
+
+(defn make-aggregate-paths [path tenant]
+  (if-let [pattern-list (get-aggregator-patterns tenant)]
+    (do
+      (debug "Doing regex thing, got expressions: " pattern-list)
+      (distinct (concat (into [] (map (fn [[k v]] (clojure.string/replace path k v)) pattern-list)) [path])))
+    (do
+      (debug "got nothing to do, returning original: " [path])
+      [path])))
 
 (defn parse-num
   "parse a number into the given value, return the
@@ -28,20 +39,26 @@
   [rollups ^String input]
   (try
     (let [[path metric time tenant] (s/split (.trim input) #" ")
+          paths (make-aggregate-paths path tenant)
           timel (parse-num #(Long/parseLong %) "nan" time)
           metricd (parse-num #(Double/parseDouble %) "nan" metric)
           tenantstr (or tenant "NONE")]
+      (counter-inc! (keyword (str "tenants." tenant ".metrics_received")) 1)
       (when (and (not= "nan" metricd) (not= "nan" timel))
-          (for [{:keys [rollup period ttl rollup-to]} rollups]
-            {:path   path
-             :tenant tenantstr
-             :rollup rollup
-             :period period
-             :ttl    (or ttl (* rollup period))
-             :time   (rollup-to timel)
-             :metric metricd})))
-      (catch Exception e
-          (info "Exception for metric [" input "] : " e))))
+        (for [path paths
+              {:keys [rollup period ttl rollup-to]} rollups]
+          {:path   path
+           :tenant tenantstr
+           :rollup rollup
+           :period period
+           :ttl    (or ttl (* rollup period))
+           :time   (rollup-to timel)
+           :metric metricd}
+          )
+        )
+      )
+    (catch Exception e
+      (info "Exception for metric [" input "] : " e))))
 
 (defn format-processor
   "Send each metric over to the cassandra store"
@@ -51,7 +68,7 @@
       (while true
         (let [metrics (<! input)]
           (try
-            (counter-inc! :metrics_recieved (count metrics))
+            (counter-inc! :metrics_received (count metrics))
             (doseq [metric metrics]
               (let [formed (remove nil? (formatter rollups metric))]
                 (doseq [f formed]
@@ -70,10 +87,11 @@
         handler (format-processor chan indexch (:rollups carbon) insertch)]
     (info "starting carbon handler: " carbon)
     (go
-      (let [{:keys [hostname tenant interval]} stats]
+      (let [{:keys [hostname tenant interval console]} stats]
         (while true
           (<! (timeout (* interval 1000)))
           (doseq [[k _]  (counter-list)]
+            (if console (info "Stats: " k "=" (counter-get k)))
             (>! chan (clojure.string/join " " [(str hostname ".cyanite." (name k))
                                                (counter-get k)
                                                (quot (System/currentTimeMillis) 1000)

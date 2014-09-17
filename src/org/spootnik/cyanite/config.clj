@@ -1,19 +1,20 @@
 (ns org.spootnik.cyanite.config
   "Yaml config parser, with a poor man's dependency injector"
   (:import (java.net InetAddress))
-  (:require [clj-yaml.core         :refer [parse-string]]
-            [clojure.string        :refer [split]]
+  (:require [org.spootnik.cyanite.util :refer [set-aggregator-patterns!]]
+            [clj-yaml.core :refer [parse-string]]
+            [clojure.string :refer [split]]
             [clojure.tools.logging :refer [error info debug]]))
 
 (def
   ^{:doc "handle logging configuration from the yaml file"}
   default-logging
-  {:use "org.spootnik.cyanite.logging/start-logging"
-   :pattern "%p [%d] %t - %c - %m%n"
-   :external false
-   :console true
-   :files  []
-   :level  "info"
+  {:use       "org.spootnik.cyanite.logging/start-logging"
+   :pattern   "%p [%d] %t - %c - %m%n"
+   :external  false
+   :console   true
+   :files     []
+   :level     "info"
    :overrides {:org.spootnik "debug"}})
 
 (def ^{:doc "handle storage with cassandra-metric-store by default"}
@@ -22,9 +23,9 @@
 
 (def ^{:doc "let carbon listen on 2003 by default"}
   default-carbon
-  {:enabled true
-   :host    "127.0.0.1"
-   :port    2003
+  {:enabled     true
+   :host        "127.0.0.1"
+   :port        2003
    :readtimeout 30})
 
 (def ^{:doc "let the http api listen on 8080 by default"}
@@ -37,10 +38,16 @@
   default-stats
   {:interval 60
    :hostname (.. InetAddress getLocalHost getHostName)
-   :tenant "NONE"})
+   :tenant   "NONE"
+   :console  false})
 
 (def default-index
   {:use "org.spootnik.cyanite.path/memory-pathstore"})
+
+(def ^{:doc "Disabled by default. Get aggregation patterns from /etc/cyanite/aggregator.yaml"}
+  default-aggregator
+  {:enabled false
+   :path    "/etc/cyanite/aggregator.yaml"})
 
 (defn to-seconds
   "Takes a string containing a duration like 13s, 4h etc. and
@@ -66,7 +73,7 @@
           retention-secs (to-seconds retention-string)]
       {:rollup rollup-secs
        :period (/ retention-secs rollup-secs)
-       :ttl (* rollup-secs (/ retention-secs rollup-secs))})
+       :ttl    (* rollup-secs (/ retention-secs rollup-secs))})
     rollup))
 
 (defn convert-shorthand-rollups
@@ -115,9 +122,17 @@
   (-> (or path
           (System/getProperty "cyanite.configuration")
           (System/getenv "CYANITE_CONFIGURATION")
-          "/etc/cyanite.yaml")
+          "/etc/cyanite.yaml"
+          "/etc/cyanite/cyanite.yaml")
       slurp
       parse-string))
+
+(defn load-aggregator-config [path quiet?]
+  (try (when-not quiet?
+         (println "Loading aggregator rules from: " path))
+       (doseq [[k v] (parse-string (slurp path) false)] (set-aggregator-patterns! k v))
+       ;(map (fn [[k v]] (set-aggregator-patterns! k v)) (parse-string (slurp path) false))
+       ))
 
 (defn init
   "Parse yaml then enhance config"
@@ -136,4 +151,5 @@
         (update-in [:carbon :rollups] assoc-rollup-to)
         (update-in [:index] (partial merge default-index))
         (update-in [:index] get-instance :index)
-        (update-in [:http] (partial merge default-http)))))
+        (update-in [:http] (partial merge default-http))
+        (update-in [:aggregator] (partial merge default-aggregator)))))
