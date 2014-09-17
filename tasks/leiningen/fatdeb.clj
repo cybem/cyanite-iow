@@ -80,8 +80,8 @@
     (.mkdirs (file dir "DEBIAN"))
     (write (file dir "DEBIAN" "control") (control project))
     (write (file dir "DEBIAN" "conffiles")
-           (join "\n" ["/etc/cyanite.yaml"
-                       "/etc/cyanite/cyanite.yaml"
+           (join "\n" ["/etc/cyanite/cyanite.yaml"
+                       "/etc/cyanite/aggregator.yaml"
                        "/etc/cyanite/"
                        "/etc/init.d/cyanite"
                        "/etc/default/cyanite"]))
