@@ -6,8 +6,10 @@
             [org.spootnik.cyanite.path  :as path]
             [org.spootnik.cyanite.tcp   :as tc]
             [org.spootnik.cyanite.util  :refer [partition-or-time get-aggregator-patterns
-                                                counter-get counter-list counters-reset!
-                                                counter-inc!]]
+                                                get-blacklist-patterns
+                                                counter-get counter-list
+                                                counters-reset! counter-inc!
+                                                go-forever]]
             [clojure.tools.logging      :refer [info debug]]
             [gloss.core                 :refer [string]]
             [lamina.core                :refer :all]
@@ -21,8 +23,17 @@
       (debug "Doing regex thing, got expressions: " pattern-list)
       (distinct (concat (into [] (map (fn [[k v]] (clojure.string/replace path k v)) pattern-list)) [path])))
     (do
-      (debug "got nothing to do, returning original: " [path])
+      (debug "got nothing to add: " [path])
       [path])))
+
+(defn check-blacklist [paths tenant]
+  (if-let [pattern-list (get-blacklist-patterns tenant)]
+    (do
+      (debug "Got blacklist: " pattern-list)
+      (remove (set (distinct (flatten (for [p pattern-list] (filter #(re-matches (re-pattern p) %) paths))))) paths))
+    (do
+      (debug "No blacklist:" paths)
+      paths)))
 
 (defn parse-num
   "parse a number into the given value, return the
@@ -39,7 +50,7 @@
   [rollups ^String input]
   (try
     (let [[path metric time tenant] (s/split (.trim input) #" ")
-          paths (make-aggregate-paths path tenant)
+          paths (check-blacklist (make-aggregate-paths path tenant) tenant)
           timel (parse-num #(Long/parseLong %) "nan" time)
           metricd (parse-num #(Double/parseDouble %) "nan" metric)
           tenantstr (or tenant "NONE")]

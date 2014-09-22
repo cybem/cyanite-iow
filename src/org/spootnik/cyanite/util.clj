@@ -57,7 +57,7 @@
 (defn counters-reset! []
   (reset! counters (into {} (map (fn [[k _]] {k 0}) @counters))))
 
-(comment "Aggregation config is an atom map {tenant {regex-match regex-replace ...}")
+(comment "Aggregation config is an atom map {tenant {regex-match regex-replace ...} tenant2 {regex-match regex-replace ...}}")
 
 (def aggregator-patterns (atom {}))
 
@@ -69,6 +69,16 @@
 
 (defn set-aggregator-patterns! [tenant pattern-map]
   (swap! aggregator-patterns update-in [(keyword tenant)] (fn [_] (convert-regex pattern-map))))
+
+(comment "Blacklist config is an atom map {tenant [regex-match regex-match2 ...] tenant2 [regex-match regex-match2 ...}")
+
+(def blacklist-patterns (atom {}))
+
+(defn get-blacklist-patterns [tenant]
+  (or (get @blacklist-patterns (keyword tenant)) nil))
+
+(defn set-blacklist-patterns! [tenant pattern-list]
+  (swap! blacklist-patterns update-in [(keyword tenant)] (fn [_] (for [p pattern-list] (re-pattern p)))))
 
 (defmacro go-catch
   [& body]

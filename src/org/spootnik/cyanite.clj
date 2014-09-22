@@ -28,9 +28,11 @@
     (when help
       (println banner)
       (System/exit 0))
-    (let [{:keys [carbon http aggregator] :as config} (config/init path quiet)]
+    (let [{:keys [carbon http aggregator blacklist] :as config} (config/init path quiet)]
       (when (:enabled aggregator)
         (config/load-aggregator-config (:path aggregator) quiet))
+      (when (:enabled blacklist)
+        (config/load-blacklist-config (:path blacklist) quiet))
       (when (:enabled carbon)
         (carbon/start config))
       (when (:enabled http)

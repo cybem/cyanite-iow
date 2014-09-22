@@ -1,7 +1,8 @@
 (ns org.spootnik.cyanite.config
   "Yaml config parser, with a poor man's dependency injector"
   (:import (java.net InetAddress))
-  (:require [org.spootnik.cyanite.util :refer [set-aggregator-patterns!]]
+  (:require [org.spootnik.cyanite.util :refer [set-aggregator-patterns!
+                                               set-blacklist-patterns!]]
             [clj-yaml.core :refer [parse-string]]
             [clojure.string :refer [split]]
             [clojure.tools.logging :refer [error info debug]]))
@@ -48,6 +49,11 @@
   default-aggregator
   {:enabled false
    :path    "/etc/cyanite/aggregator.yaml"})
+
+(def ^{:doc "Disabled by default. Get blacklist patterns from /etc/cyanite/blacklist.yaml"}
+  default-blacklist
+  {:enabled false
+   :path "/etc/cyanite/blacklist.yaml"})
 
 (defn to-seconds
   "Takes a string containing a duration like 13s, 4h etc. and
@@ -122,7 +128,6 @@
   (-> (or path
           (System/getProperty "cyanite.configuration")
           (System/getenv "CYANITE_CONFIGURATION")
-          "/etc/cyanite.yaml"
           "/etc/cyanite/cyanite.yaml")
       slurp
       parse-string))
@@ -131,8 +136,12 @@
   (try (when-not quiet?
          (println "Loading aggregator rules from: " path))
        (doseq [[k v] (parse-string (slurp path) false)] (set-aggregator-patterns! k v))
-       ;(map (fn [[k v]] (set-aggregator-patterns! k v)) (parse-string (slurp path) false))
        ))
+
+(defn load-blacklist-config [path quiet?]
+  (try (when-not quiet?
+         (println "Loading blacklist rules from: " path))
+       (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))))
 
 (defn init
   "Parse yaml then enhance config"
@@ -152,4 +161,5 @@
         (update-in [:index] (partial merge default-index))
         (update-in [:index] get-instance :index)
         (update-in [:http] (partial merge default-http))
-        (update-in [:aggregator] (partial merge default-aggregator)))))
+        (update-in [:aggregator] (partial merge default-aggregator))
+        (update-in [:blacklist] (partial merge default-blacklist)))))
