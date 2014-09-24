@@ -132,12 +132,12 @@
       slurp
       parse-string))
 
-(defn load-aggregator-config [path quiet?]
+(defn load-aggregator-config [path]
   (try
     (info "Loading aggregator rules from: " path)
     (doseq [[k v] (parse-string (slurp path) false)] (set-aggregator-patterns! k v))))
 
-(defn load-blacklist-config [path quiet?]
+(defn load-blacklist-config [path]
   (try
     (info "Loading blacklist rules from: " path)
     (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))))

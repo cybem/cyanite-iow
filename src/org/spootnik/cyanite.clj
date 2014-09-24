@@ -34,9 +34,9 @@
       (reset! (beckon/signal-atom "HUP")
               [(fn []
                  (when (:enabled aggregator)
-                   (config/load-aggregator-config (:path aggregator) quiet))
+                   (config/load-aggregator-config (:path aggregator)))
                  (when (:enabled blacklist)
-                   (config/load-blacklist-config (:path blacklist) quiet)))])
+                   (config/load-blacklist-config (:path blacklist))))])
       (beckon/raise! "HUP")
       (when (:enabled carbon)
         (carbon/start config))
