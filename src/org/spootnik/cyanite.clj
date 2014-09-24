@@ -31,13 +31,14 @@
       (println banner)
       (System/exit 0))
     (let [{:keys [carbon http aggregator blacklist] :as config} (config/init path quiet)]
-      (reset! (beckon/signal-atom "HUP")
-              [(fn []
-                 (when (:enabled aggregator)
-                   (config/load-aggregator-config (:path aggregator)))
-                 (when (:enabled blacklist)
-                   (config/load-blacklist-config (:path blacklist))))])
-      (beckon/raise! "HUP")
+      (let [load-configs
+            (fn []
+              (when (:enabled aggregator)
+                (config/load-aggregator-config (:path aggregator)))
+              (when (:enabled blacklist)
+                (config/load-blacklist-config (:path blacklist))))]
+        (reset! (beckon/signal-atom "HUP") #{load-configs})
+        (load-configs))
       (when (:enabled carbon)
         (carbon/start config))
       (when (:enabled http)
