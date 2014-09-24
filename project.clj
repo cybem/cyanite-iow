@@ -28,4 +28,5 @@
                   :exclusions [javax.mail/mail
                                javax.jms/jms
                                com.sun.jdkmk/jmxtools
-                               com.sun.jmx/jmxri]]])
+                               com.sun.jmx/jmxri]]
+                 [beckon "0.1.1"]])

@@ -6,6 +6,8 @@
             [org.spootnik.cyanite.config :as config]
             [clojure.tools.cli           :refer [cli]]))
 
+(require 'beckon)
+
 (set! *warn-on-reflection* true)
 
 (defn get-cli
@@ -29,10 +31,13 @@
       (println banner)
       (System/exit 0))
     (let [{:keys [carbon http aggregator blacklist] :as config} (config/init path quiet)]
-      (when (:enabled aggregator)
-        (config/load-aggregator-config (:path aggregator) quiet))
-      (when (:enabled blacklist)
-        (config/load-blacklist-config (:path blacklist) quiet))
+      (reset! (beckon/signal-atom "HUP")
+              [(fn []
+                 (when (:enabled aggregator)
+                   (config/load-aggregator-config (:path aggregator) quiet))
+                 (when (:enabled blacklist)
+                   (config/load-blacklist-config (:path blacklist) quiet)))])
+      (beckon/raise! "HUP")
       (when (:enabled carbon)
         (carbon/start config))
       (when (:enabled http)
