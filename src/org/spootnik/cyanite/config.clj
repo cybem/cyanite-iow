@@ -133,15 +133,14 @@
       parse-string))
 
 (defn load-aggregator-config [path quiet?]
-  (try (when-not quiet?
-         (info "Loading aggregator rules from: " path))
-       (doseq [[k v] (parse-string (slurp path) false)] (set-aggregator-patterns! k v))
-       ))
+  (try
+    (info "Loading aggregator rules from: " path)
+    (doseq [[k v] (parse-string (slurp path) false)] (set-aggregator-patterns! k v))))
 
 (defn load-blacklist-config [path quiet?]
-  (try (when-not quiet?
-         (info "Loading blacklist rules from: " path))
-       (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))))
+  (try
+    (info "Loading blacklist rules from: " path)
+    (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))))
 
 (defn init
   "Parse yaml then enhance config"
