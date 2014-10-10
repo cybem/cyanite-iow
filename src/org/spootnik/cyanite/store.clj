@@ -202,14 +202,20 @@
          {:values [ttl data tenant rollup period path time]}))
       (fetch [this agg paths tenant rollup period from to]
         (debug "fetching paths from store: " paths tenant rollup period from to)
-        (if-let [data (and (seq paths)
-                           (->> (alia/execute
-                                 session fetch!
-                                 {:values [paths tenant (int rollup) (int period)
-                                           from to]
-                                  :fetch-size Integer/MAX_VALUE})
-                                (map detect-aggregate)
-                                (seq)))]
+        (if-let [data
+                 (and (seq paths)
+                      (let [futures
+                            (doall (map #(future
+                                           (->> (alia/execute
+                                                 session fetch!
+                                                 {:values [% tenant (int rollup)
+                                                           (int period)
+                                                           from to]
+                                                  :fetch-size Integer/MAX_VALUE})
+                                                (map detect-aggregate)
+                                                (seq))
+                                           paths)))]
+                        (map deref futures)))]
           (let [min-point  (:time (first data))
                 max-point  (-> to (quot rollup) (* rollup))
                 nil-points (->> (range min-point (inc max-point) rollup)
