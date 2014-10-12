@@ -67,7 +67,12 @@
   "generate the filter portion of an es query"
   [path tenant leafs-only]
   (let [depth (path-depth path)
-        p (str/replace (str/replace path "." "\\.") "*" ".*")
+        p (reduce (fn [s r] (str/replace s (first r) (second r)))
+                  path [["." "\\."]
+                        ["*" ".*"]
+                        ["{" "("]
+                        ["}" ")"]
+                        ["," "|"]])
         f (vector
            {:range {:depth {:from depth :to depth}}}
            {:term {:tenant tenant}}
