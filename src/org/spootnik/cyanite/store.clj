@@ -165,7 +165,8 @@
            chan_size 10000
            batch_size 100}}]
   (info "creating cassandra metric store")
-  (let [session (-> (alia/cluster {:contact-points [cluster]})
+  (let [cluster (if (sequential? cluster) cluster [cluster])
+        session (-> (alia/cluster {:contact-points cluster})
                     (alia/connect keyspace))
         insert! (insertq session)
         fetch!  (fetchq session)]
