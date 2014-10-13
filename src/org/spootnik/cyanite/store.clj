@@ -156,6 +156,23 @@
       (.add b (.bind s (into-array Object v))))
     b))
 
+(defn par-fetch [session fetch! paths tenant rollup period from to]
+  (let [futures
+        (doall (map #(future
+                       (let [path %]
+                         (debug "fetching path from store: " path
+                                tenant rollup period from to)
+                         (->> (alia/execute
+                               session fetch!
+                               {:values [[path] tenant (int rollup)
+                                         (int period)
+                                         from to]
+                                :fetch-size Integer/MAX_VALUE})
+                              (map detect-aggregate)
+                              (seq))))
+                    paths))]
+    (remove nil? (reduce concat (map deref futures)))))
+
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
    The interval is fixed for now, at 1minute"
@@ -202,20 +219,9 @@
          {:values [ttl data tenant rollup period path time]}))
       (fetch [this agg paths tenant rollup period from to]
         (debug "fetching paths from store: " paths tenant rollup period from to)
-        (if-let [data
-                 (and (seq paths)
-                      (let [futures
-                            (doall (map #(future
-                                           (->> (alia/execute
-                                                 session fetch!
-                                                 {:values [[%] tenant (int rollup)
-                                                           (int period)
-                                                           from to]
-                                                  :fetch-size Integer/MAX_VALUE})
-                                                (map detect-aggregate)
-                                                (seq)))
-                                           paths))]
-                        (remove nil? (reduce concat (map deref futures)))))]
+        (if-let [data (and (seq paths)
+                           (par-fetch session fetch! paths tenant rollup
+                                      period from to))]
           (let [min-point  (:time (first data))
                 max-point  (-> to (quot rollup) (* rollup))
                 nil-points (->> (range min-point (inc max-point) rollup)
