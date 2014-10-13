@@ -208,14 +208,14 @@
                             (doall (map #(future
                                            (->> (alia/execute
                                                  session fetch!
-                                                 {:values [% tenant (int rollup)
+                                                 {:values [[%] tenant (int rollup)
                                                            (int period)
                                                            from to]
                                                   :fetch-size Integer/MAX_VALUE})
                                                 (map detect-aggregate)
-                                                (seq))
-                                           paths)))]
-                        (map deref futures)))]
+                                                (seq)))
+                                           paths))]
+                        (remove nil? (reduce concat (map deref futures)))))]
           (let [min-point  (:time (first data))
                 max-point  (-> to (quot rollup) (* rollup))
                 nil-points (->> (range min-point (inc max-point) rollup)
