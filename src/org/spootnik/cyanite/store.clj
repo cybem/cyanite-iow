@@ -171,7 +171,7 @@
                               (map detect-aggregate)
                               (seq))))
                     paths))]
-    (remove nil? (reduce concat (map deref futures)))))
+    (seq (remove nil? (reduce concat (map deref futures))))))
 
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
