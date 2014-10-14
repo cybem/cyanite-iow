@@ -57,7 +57,7 @@
    session
    (str
     "SELECT path,data,time FROM metric WHERE "
-    "path IN ? AND tenant = ? AND rollup = ? AND period = ? "
+    "path = ? AND tenant = ? AND rollup = ? AND period = ? "
     "AND time >= ? AND time <= ? ORDER BY time ASC;")))
 
 
@@ -159,19 +159,18 @@
 (defn par-fetch [session fetch! paths tenant rollup period from to]
   (let [futures
         (doall (map #(future
-                       (let [path %]
-                         (debug "fetching path from store: " path
-                                tenant rollup period from to)
-                         (->> (alia/execute
-                               session fetch!
-                               {:values [[path] tenant (int rollup)
-                                         (int period)
-                                         from to]
-                                :fetch-size Integer/MAX_VALUE})
-                              (map detect-aggregate)
-                              (seq))))
+                       (debug "fetching path from store: " % tenant
+                              rollup period from to)
+                       (->> (alia/execute
+                             session fetch!
+                             {:values [% tenant (int rollup)
+                                       (int period)
+                                       from to]
+                              :fetch-size Integer/MAX_VALUE})
+                            (map detect-aggregate)
+                            (seq)))
                     paths))]
-    (seq (remove nil? (reduce concat (map deref futures))))))
+    (seq (remove nil? (reduce into (map deref futures))))))
 
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
