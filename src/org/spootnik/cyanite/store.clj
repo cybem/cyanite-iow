@@ -8,7 +8,8 @@
             [org.spootnik.cyanite.util :refer [partition-or-time go-forever go-catch counter-inc!]]
             [clojure.tools.logging       :refer [error info debug]]
             [lamina.core                 :refer [channel receive-all]]
-            [clojure.core.async :as async :refer [<! >! go chan]])
+            [clojure.core.async :as async :refer [<! >! go chan]]
+            [clojure.core.reducers :as r])
   (:import [com.datastax.driver.core
             BatchStatement
             PreparedStatement]))
