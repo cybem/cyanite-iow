@@ -228,10 +228,10 @@
           (let [min-point  (:time (first data))
                 max-point  (-> to (quot rollup) (* rollup))
                 nil-points (->> (range min-point (inc max-point) rollup)
-                                (map (fn [time] {time [{:time time}]}))
+                                (pmap (fn [time] {time [{:time time}]}))
                                 (reduce merge {}))
                 by-path    (->> (group-by :path data)
-                                (map (partial fill-in nil-points))
+                                (pmap (partial fill-in nil-points))
                                 (reduce merge {}))]
             {:from min-point
              :to   max-point
