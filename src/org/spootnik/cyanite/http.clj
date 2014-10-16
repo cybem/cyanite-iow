@@ -73,7 +73,7 @@
                    (if-let [{:keys [rollup period]} (find-best-rollup (str from) rollups)]
                      (let [to    (if to (Long/parseLong (str to)) (now))
                            from  (Long/parseLong (str from))
-                           paths (if (sequential? path) path [path])]
+                           paths (path/lookup index (or tenant "NONE") path)]
                        (store/fetch store (or agg "mean") paths (or tenant "NONE") rollup period from to))
                      {:step nil :from nil :to nil :series {}})
                    )})
