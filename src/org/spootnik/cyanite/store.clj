@@ -157,7 +157,9 @@
       (.add b (.bind s (into-array Object v))))
     b))
 
-(defn par-fetch [session fetch! paths tenant rollup period from to]
+(defn par-fetch
+  "Fetch data in parallel fashion."
+  [session fetch! paths tenant rollup period from to]
   (let [futures
         (doall (map #(future
                        (debug "fetching path from store: " % tenant
@@ -169,6 +171,7 @@
                                        from to]
                               :fetch-size Integer/MAX_VALUE})
                             (map detect-aggregate)
+                            (doall)
                             (seq)))
                     paths))]
     (seq (into [] (r/remove nil? (r/reduce into [] (map deref futures)))))))
@@ -226,10 +229,10 @@
           (let [min-point  (:time (first data))
                 max-point  (-> to (quot rollup) (* rollup))
                 nil-points (->> (range min-point (inc max-point) rollup)
-                                (map (fn [time] {time [{:time time}]}))
+                                (pmap (fn [time] {time [{:time time}]}))
                                 (reduce merge {}))
                 by-path    (->> (group-by :path data)
-                                (map (partial fill-in nil-points))
+                                (pmap (partial fill-in nil-points))
                                 (reduce merge {}))]
             {:from min-point
              :to   max-point
