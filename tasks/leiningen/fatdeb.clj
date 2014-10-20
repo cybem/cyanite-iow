@@ -82,7 +82,6 @@
     (write (file dir "DEBIAN" "conffiles")
            (join "\n" ["/etc/cyanite/cyanite.yaml"
                        "/etc/cyanite/aggregator.yaml"
-                       "/etc/cyanite/"
                        "/etc/init.d/cyanite"
                        "/etc/default/cyanite"]))
 
