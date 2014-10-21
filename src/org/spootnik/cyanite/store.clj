@@ -157,6 +157,14 @@
       (.add b (.bind s (into-array Object v))))
     b))
 
+(defn deref-limiter
+  "Deref with timeout limiter"
+  [f]
+  (let [result (deref f 300000 :timeout)]
+    (when (= result :timeout)
+      (throw (ex-info "Too long!" {})))
+    result))
+
 (defn par-fetch
   "Fetch data in parallel fashion."
   [session fetch! paths tenant rollup period from to]
@@ -174,7 +182,8 @@
                             (doall)
                             (seq)))
                     paths))]
-    (seq (into [] (r/remove nil? (r/reduce into [] (map deref futures)))))))
+    (seq (into [] (r/remove nil? (r/reduce into []
+                                           (map deref-limiter futures)))))))
 
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
