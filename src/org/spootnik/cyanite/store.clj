@@ -194,7 +194,9 @@
            chan_size 10000
            batch_size 100}}]
   (info "creating cassandra metric store")
-  (let [session (-> (alia/cluster {:contact-points [cluster]})
+  (let [session (-> (alia/cluster {:contact-points [cluster]
+                                   :pooling-options {:max-connections-per-host {:local 8192
+                                                                                :remote 8192}}})
                     (alia/connect keyspace))
         insert! (insertq session)
         fetch!  (fetchq session)]
