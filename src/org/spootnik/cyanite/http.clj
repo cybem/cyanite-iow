@@ -58,6 +58,15 @@
            :body    (json/generate-string
                       (or body {:error (.getMessage e)}))})))))
 
+(defn lookup-path
+  [index tenant path]
+  (path/lookup index tenant path))
+
+(defn lookup-paths
+  [index tenant paths]
+  (let [paths (if (sequential? paths) paths [paths])]
+    (flatten (pmap (partial lookup-path index tenant) paths))))
+
 (defn metrics-handler [response-channel
                        {{:keys [index store rollups]} :local-params
                         {:keys [from to path agg tenant]} :params :as request}]
@@ -73,7 +82,7 @@
                    (if-let [{:keys [rollup period]} (find-best-rollup (str from) rollups)]
                      (let [to    (if to (Long/parseLong (str to)) (now))
                            from  (Long/parseLong (str from))
-                           paths (path/lookup index (or tenant "NONE") path)]
+                           paths (lookup-paths index (or tenant "NONE") path)]
                        (store/fetch store (or agg "mean") paths (or tenant "NONE") rollup period from to))
                      {:step nil :from nil :to nil :series {}})
                    )})
