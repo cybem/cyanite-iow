@@ -1,18 +1,18 @@
 (ns org.spootnik.cyanite.carbon
   "Dead simple carbon protocol handler"
-  (:require [aleph.tcp                  :as tcp]
-            [clojure.string             :as s]
-            [org.spootnik.cyanite.store :as store]
-            [org.spootnik.cyanite.path  :as path]
-            [org.spootnik.cyanite.tcp   :as tc]
-            [org.spootnik.cyanite.util  :refer [partition-or-time get-aggregator-patterns
-                                                get-blacklist-patterns
-                                                counter-get counter-list
-                                                counters-reset! counter-inc!
-                                                go-forever]]
-            [clojure.tools.logging      :refer [info debug]]
-            [gloss.core                 :refer [string]]
-            [lamina.core                :refer :all]
+  (:require [aleph.tcp                        :as tcp]
+            [clojure.string                   :as s]
+            [org.spootnik.cyanite.store_mware :as smiddleware]
+            [org.spootnik.cyanite.path        :as path]
+            [org.spootnik.cyanite.tcp         :as tc]
+            [org.spootnik.cyanite.util        :refer [partition-or-time get-aggregator-patterns
+                                                      get-blacklist-patterns
+                                                      counter-get counter-list
+                                                      counters-reset! counter-inc!
+                                                      go-forever]]
+            [clojure.tools.logging        :refer [info debug]]
+            [gloss.core                   :refer [string]]
+            [lamina.core                  :refer :all]
             [clojure.core.async :as async :refer [<! >! >!! go chan timeout]]))
 
 (set! *warn-on-reflection* true)
@@ -91,9 +91,9 @@
 
 (defn start
   "Start a tcp carbon listener"
-  [{:keys [store carbon index stats]}]
+  [{:keys [store-middleware carbon index stats]}]
   (let [indexch (path/channel-for index)
-        insertch (store/channel-for store)
+        insertch (smiddleware/channel-for store-middleware)
         chan (chan 100000)
         handler (format-processor chan indexch (:rollups carbon) insertch)]
     (info "starting carbon handler: " carbon)

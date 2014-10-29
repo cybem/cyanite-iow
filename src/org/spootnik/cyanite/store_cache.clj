@@ -93,12 +93,24 @@
         (when flusher
           (deref flusher))))))
 
+(defn store-chan
+  [tenant period rollup time path data ttl chan]
+  (>! chan {:tenant tenant
+            :period period
+            :rollup rollup
+            :time   time
+            :path   path
+            :metric data
+            :ttl    ttl}))
+
 (defn simple-cache
-  [fn-store & {:keys [fn-agg] :or {fn-agg agg-avg}}]
+  [{:keys [store fn-agg] :or {fn-agg agg-avg}}]
   (let [mkeys (atom {})
         get-data (fn [pkeys] (get (meta pkeys) :data))
         cache-get (fn [key pkeys] (get @(get-data pkeys) key))
-        cache-key (fn [tenant period rollup time path] (hash path))]
+        cache-key (fn [tenant period rollup time path] (hash path))
+        store-chan (store/channel-for store)
+        fn-store (partial store-chan chan)]
     (reify
       StoreCache
       (put! [this tenant period rollup time path data ttl]
