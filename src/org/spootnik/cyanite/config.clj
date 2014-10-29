@@ -55,6 +55,12 @@
   {:enabled false
    :path "/etc/cyanite/blacklist.yaml"})
 
+(def default-store-middleware
+  {:use "org.spootnik.cyanite.store_mware/store-middleware"})
+
+(def default-store-cache
+  {:use "org.spootnik.cyanite.store_cache/simple-cache"})
+
 (defn to-seconds
   "Takes a string containing a duration like 13s, 4h etc. and
    converts it to seconds"
@@ -154,6 +160,10 @@
         (update-in [:stats] (partial merge default-stats))
         (update-in [:store] (partial merge default-store))
         (update-in [:store] get-instance :store)
+        (update-in [:store-middelware] (partial merge default-store-middleware))
+        (update-in [:store-middelware] get-instance :store-middelware)
+        (update-in [:store-cache] (partial merge default-store-cache))
+        (update-in [:store-cache] get-instance :store-cache)
         (update-in [:carbon] (partial merge default-carbon))
         (update-in [:carbon :rollups] convert-shorthand-rollups)
         (update-in [:carbon :rollups] assoc-rollup-to)
