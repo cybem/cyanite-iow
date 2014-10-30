@@ -1,7 +1,7 @@
 (ns org.spootnik.cyanite.store_cache
   "Caching facility for Cyanite"
   (:require [clojure.string :as str]
-            [clojure.core.async :as async :refer [>!]]
+            [clojure.core.async :as async :refer [>!!]]
             [clojure.tools.logging :refer [error info debug]]
             [org.spootnik.cyanite.store :as store]))
 
@@ -40,12 +40,15 @@
 (defn create-flusher
   [mkeys mkey pkeys tenant period rollup time ttl fn-get fn-agg fn-store fn-key]
   (fn []
-    (doseq [path @pkeys]
-      (fn-store tenant period rollup time path
-                (fn-agg (fn-get
-                         (fn-key tenant period rollup time path)
-                         @pkeys)) ttl))
-    (swap! mkeys #(dissoc % mkey))))
+    (try
+      (doseq [path @pkeys]
+        (fn-store tenant period rollup time path
+                  (fn-agg (fn-get
+                           (fn-key tenant period rollup time path)
+                           @pkeys)) ttl))
+      (swap! mkeys #(dissoc % mkey))
+      (catch Exception e
+        (info e "Cache flushing exception")))))
 
 (defn run-delayer!
   [rollup fn-flusher]
@@ -98,13 +101,13 @@
 
 (defn store-chan
   [tenant period rollup time path data ttl chan]
-  (>! chan {:tenant tenant
-            :period period
-            :rollup rollup
-            :time   time
-            :path   path
-            :metric data
-            :ttl    ttl}))
+  (>!! chan {:tenant tenant
+             :period period
+             :rollup rollup
+             :time   time
+             :path   path
+             :metric data
+             :ttl    ttl}))
 
 (defn simple-cache
   [{:keys [store fn-agg] :or {fn-agg agg-avg}}]
@@ -114,7 +117,11 @@
         cache-get (fn [key pkeys] (get @(get-data pkeys) key))
         cache-key (fn [tenant period rollup time path] (hash path))
         schan (store/channel-for store)
-        fn-store (partial store-chan schan)]
+        ;;fn-store (partial store-chan schan)
+        fn-store (fn [tenant period rollup time path data ttl]
+                   (store-chan tenant period rollup time path data ttl schan))
+        ]
+
     (reify
       StoreCache
       (put! [this tenant period rollup time path data ttl]
@@ -122,14 +129,18 @@
               pkeys (set-keys! mkeys tenant period rollup time path ttl
                                cache-get fn-agg fn-store cache-key)
               adata (get-data @pkeys)]
-          (swap! adata #(assoc % ckey (conj (get % ckey) data)))))
+          (swap! adata #(assoc % ckey (conj (get % ckey) data)))
+          ;;(-show-keys this)
+          ;;(-show-cache this)
+          ;;(-show-meta this)
+          ))
       (flush! [this]
         (run-flusher! mkeys))
-      (-show-keys [this] (println "MKeys:" mkeys))
+      (-show-keys [this] (debug "MKeys:" mkeys))
       (-show-cache [this]
-        (println "Cache:")
+        (debug "Cache:")
         (doseq [[mkey pkeys] @mkeys]
-          (println (get-data @pkeys))))
+          (debug (get-data @pkeys))))
       (-show-meta [this]
         (doseq [[mkey pkeys] @mkeys]
-          (println "Meta:" mkey (meta @pkeys)))))))
+          (debug "Meta:" mkey (meta @pkeys)))))))
