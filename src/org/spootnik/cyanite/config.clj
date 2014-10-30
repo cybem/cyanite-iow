@@ -170,7 +170,7 @@
         (update-in [:store] get-instance :store)
         (config-with-deps :store-cache default-store-cache [:store])
         (config-with-deps :store-middleware default-store-middleware
-                          [:store :cache])
+                          [:store :store-cache])
         (update-in [:carbon] (partial merge default-carbon))
         (update-in [:carbon :rollups] convert-shorthand-rollups)
         (update-in [:carbon :rollups] assoc-rollup-to)
