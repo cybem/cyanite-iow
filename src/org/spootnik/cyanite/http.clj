@@ -59,7 +59,7 @@
                       (or body {:error (.getMessage e)}))})))))
 
 (defn metrics-handler [response-channel
-                       {{:keys [index store rollups]} :local-params
+                       {{:keys [index store-middleware rollups]} :local-params
                         {:keys [from to path agg tenant]} :params :as request}]
   (debug "fetching paths: " path)
   (enqueue
@@ -74,7 +74,7 @@
                      (let [to    (if to (Long/parseLong (str to)) (now))
                            from  (Long/parseLong (str from))
                            paths (if (sequential? path) path [path])]
-                       (store/fetch store (or agg "mean") paths (or tenant "NONE") rollup period from to))
+                       (store/fetch store-middleware (or agg "mean") paths (or tenant "NONE") rollup period from to))
                      {:step nil :from nil :to nil :series {}})
                    )})
       (catch Exception e
