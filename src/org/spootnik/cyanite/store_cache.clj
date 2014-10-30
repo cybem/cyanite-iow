@@ -1,6 +1,8 @@
 (ns org.spootnik.cyanite.store_cache
   "Caching facility for Cyanite"
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [clojure.core.async :as async :refer [>!]]
+            [org.spootnik.cyanite.store :as store]))
 
 (defprotocol StoreCache
   (put! [this tenant period rollup time path data ttl])
@@ -109,8 +111,8 @@
         get-data (fn [pkeys] (get (meta pkeys) :data))
         cache-get (fn [key pkeys] (get @(get-data pkeys) key))
         cache-key (fn [tenant period rollup time path] (hash path))
-        store-chan (store/channel-for store)
-        fn-store (partial store-chan chan)]
+        schan (store/channel-for store)
+        fn-store (partial store-chan schan)]
     (reify
       StoreCache
       (put! [this tenant period rollup time path data ttl]

@@ -1,8 +1,11 @@
 (ns org.spootnik.cyanite.store_mware
   "Caching facility for Cyanite"
   (:require [clojure.string :as str]
+            [clojure.core.async :as async :refer [<! >! go chan]]
+            [clojure.tools.logging :refer [error info debug]]
             [org.spootnik.cyanite.store :as store]
-            [clojure.tools.logging :refer [error info debug]]))
+            [org.spootnik.cyanite.store_cache :as cache]
+            [org.spootnik.cyanite.util :refer [go-forever]]))
 
 (defn store-middleware
   [{:keys [store]}]
@@ -17,7 +20,7 @@
       (store/fetch store agg paths tenant rollup period from to))))
 
 (defn store-middleware-cache
-  [{:keys [store cache]}]
+  [{:keys [store cache chan_size] :or {chan_size 10000}}]
   (info "creating caching metric store middleware")
   (reify
     store/Metricstore
