@@ -149,23 +149,12 @@
     (info "Loading blacklist rules from: " path)
     (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))))
 
-(defn config-store-cache
-  [config]
-  (let [store (get config :store)
-        settings (merge default-store-cache {:store store})]
+(defn config-with-deps
+  [config entity default deps]
+  (let [settings (merge default (select-keys config deps))]
     (-> config
-        (update-in [:store-cache] (partial merge settings))
-        (update-in [:store-cache] get-instance :store-cache))))
-
-(defn config-store-middleware
-  [config]
-  (let [store (get config :store)
-        cache (get config :cache)
-        settings (merge default-store-middleware {:store store
-                                                  :cache cache})]
-    (-> config
-        (update-in [:store-middleware] (partial merge settings))
-        (update-in [:store-middleware] get-instance :store-middleware))))
+        (update-in [entity] (partial merge settings))
+        (update-in [entity] get-instance entity))))
 
 (defn init
   "Parse yaml then enhance config"
@@ -179,8 +168,9 @@
         (update-in [:stats] (partial merge default-stats))
         (update-in [:store] (partial merge default-store))
         (update-in [:store] get-instance :store)
-        (config-store-cache)
-        (config-store-middleware)
+        (config-with-deps :store-cache default-store-cache [:store])
+        (config-with-deps :store-middleware default-store-middleware
+                          [:store :cache])
         (update-in [:carbon] (partial merge default-carbon))
         (update-in [:carbon :rollups] convert-shorthand-rollups)
         (update-in [:carbon :rollups] assoc-rollup-to)
