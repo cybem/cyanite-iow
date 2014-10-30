@@ -100,7 +100,7 @@
           (deref flusher))))))
 
 (defn store-chan
-  [tenant period rollup time path data ttl chan]
+  [chan tenant period rollup time path data ttl]
   (>!! chan {:tenant tenant
              :period period
              :rollup rollup
@@ -117,11 +117,7 @@
         cache-get (fn [key pkeys] (get @(get-data pkeys) key))
         cache-key (fn [tenant period rollup time path] (hash path))
         schan (store/channel-for store)
-        ;;fn-store (partial store-chan schan)
-        fn-store (fn [tenant period rollup time path data ttl]
-                   (store-chan tenant period rollup time path data ttl schan))
-        ]
-
+        fn-store (partial store-chan schan)]
     (reify
       StoreCache
       (put! [this tenant period rollup time path data ttl]
@@ -129,11 +125,7 @@
               pkeys (set-keys! mkeys tenant period rollup time path ttl
                                cache-get fn-agg fn-store cache-key)
               adata (get-data @pkeys)]
-          (swap! adata #(assoc % ckey (conj (get % ckey) data)))
-          ;;(-show-keys this)
-          ;;(-show-cache this)
-          ;;(-show-meta this)
-          ))
+          (swap! adata #(assoc % ckey (conj (get % ckey) data)))))
       (flush! [this]
         (run-flusher! mkeys))
       (-show-keys [this] (debug "MKeys:" mkeys))
