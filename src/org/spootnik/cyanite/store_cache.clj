@@ -2,6 +2,7 @@
   "Caching facility for Cyanite"
   (:require [clojure.string :as str]
             [clojure.core.async :as async :refer [>!]]
+            [clojure.tools.logging :refer [error info debug]]
             [org.spootnik.cyanite.store :as store]))
 
 (defprotocol StoreCache
@@ -113,6 +114,7 @@
         cache-key (fn [tenant period rollup time path] (hash path))
         schan (store/channel-for store)
         fn-store (partial store-chan schan)]
+    (info "creating simple store aggregation cache")
     (reify
       StoreCache
       (put! [this tenant period rollup time path data ttl]

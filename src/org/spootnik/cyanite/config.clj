@@ -3,6 +3,7 @@
   (:import (java.net InetAddress))
   (:require [org.spootnik.cyanite.util :refer [set-aggregator-patterns!
                                                set-blacklist-patterns!]]
+            [org.spootnik.cyanite.store_mware]
             [clj-yaml.core :refer [parse-string]]
             [clojure.string :refer [split]]
             [clojure.tools.logging :refer [error info debug]]))
