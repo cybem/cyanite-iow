@@ -157,6 +157,16 @@
         (update-in [:store-cache] (partial merge settings))
         (update-in [:store-cache] get-instance :store-cache))))
 
+(defn config-store-middleware
+  [config]
+  (let [store (get config :store)
+        cache (get config :cache)
+        settings (merge default-store-middleware {:store store
+                                                  :cache cache})]
+    (-> config
+        (update-in [:store-middleware] (partial merge settings))
+        (update-in [:store-middleware] get-instance :store-middleware))))
+
 (defn init
   "Parse yaml then enhance config"
   [path quiet?]
@@ -169,9 +179,8 @@
         (update-in [:stats] (partial merge default-stats))
         (update-in [:store] (partial merge default-store))
         (update-in [:store] get-instance :store)
-        (update-in [:store-middleware] (partial merge default-store-middleware))
-        (update-in [:store-middleware] get-instance :store-middleware)
         (config-store-cache)
+        (config-store-middleware)
         (update-in [:carbon] (partial merge default-carbon))
         (update-in [:carbon :rollups] convert-shorthand-rollups)
         (update-in [:carbon :rollups] assoc-rollup-to)
