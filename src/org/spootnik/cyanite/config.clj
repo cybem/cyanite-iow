@@ -149,6 +149,14 @@
     (info "Loading blacklist rules from: " path)
     (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))))
 
+(defn config-store-cache
+  [config]
+  (let [store (get config :store)
+        settings (merge default-store-cache {:store store})]
+    (-> config
+        (update-in [:store-cache] (partial merge settings))
+        (update-in [:store-cache] get-instance :store-cache))))
+
 (defn init
   "Parse yaml then enhance config"
   [path quiet?]
@@ -163,8 +171,7 @@
         (update-in [:store] get-instance :store)
         (update-in [:store-middelware] (partial merge default-store-middleware))
         (update-in [:store-middelware] get-instance :store-middelware)
-        (update-in [:store-cache] (partial merge default-store-cache))
-        (update-in [:store-cache] get-instance :store-cache)
+        (config-store-cache)
         (update-in [:carbon] (partial merge default-carbon))
         (update-in [:carbon :rollups] convert-shorthand-rollups)
         (update-in [:carbon :rollups] assoc-rollup-to)
