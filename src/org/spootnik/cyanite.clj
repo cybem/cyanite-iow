@@ -1,10 +1,11 @@
 (ns org.spootnik.cyanite
   "Main cyanite namespace"
   (:gen-class)
-  (:require [org.spootnik.cyanite.carbon :as carbon]
-            [org.spootnik.cyanite.http   :as http]
-            [org.spootnik.cyanite.config :as config]
-            [clojure.tools.cli           :refer [cli]]))
+  (:require [org.spootnik.cyanite.carbon      :as carbon]
+            [org.spootnik.cyanite.http        :as http]
+            [org.spootnik.cyanite.config      :as config]
+            [clojure.tools.cli                :refer [cli]]
+            [org.spootnik.cyanite.store_cache :as cache]))
 
 (require 'beckon)
 
@@ -23,6 +24,10 @@
         (println "Could not parse arguments: " (.getMessage e)))
       (System/exit 1))))
 
+(defn install-flusher
+ [{:keys [store-cache]}]
+ (reset! (beckon/signal-atom "TERM") [#(cache/flush! store-cache)]))
+
 (defn -main
   "Our main function, parses args and launches appropriate services"
   [& args]
@@ -39,6 +44,7 @@
                 (config/load-blacklist-config (:path blacklist))))]
         (reset! (beckon/signal-atom "HUP") #{load-configs})
         (load-configs))
+      (install-flusher config)
       (when (:enabled carbon)
         (carbon/start config))
       (when (:enabled http)
