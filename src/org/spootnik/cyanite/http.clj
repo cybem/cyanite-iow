@@ -59,7 +59,7 @@
                       (or body {:error (.getMessage e)}))})))))
 
 (defn metrics-handler [response-channel
-                       {{:keys [index store-middleware rollups]} :local-params
+                       {{:keys [index store rollups]} :local-params
                         {:keys [from to path agg tenant]} :params :as request}]
   (debug "fetching paths: " path)
   (enqueue
@@ -74,7 +74,7 @@
                      (let [to    (if to (Long/parseLong (str to)) (now))
                            from  (Long/parseLong (str from))
                            paths (if (sequential? path) path [path])]
-                       (store/fetch store-middleware (or agg "mean") paths (or tenant "NONE") rollup period from to))
+                       (store/fetch store (or agg "mean") paths (or tenant "NONE") rollup period from to))
                      {:step nil :from nil :to nil :series {}})
                    )})
       (catch Exception e
@@ -104,8 +104,8 @@
 (defn start
   "Start the API, handling each request by parsing parameters and
    routes then handing over to the request processor"
-  [{:keys [http store carbon index] :as config}]
-  (start-http-server (wrap-ring-handler  (wrap-local-params handler {:store store
+  [{:keys [http store-middleware carbon index] :as config}]
+  (start-http-server (wrap-ring-handler  (wrap-local-params handler {:store store-middleware
                                                                      :rollups (:rollups carbon)
                                                                      :index index})) http)
   nil)
