@@ -15,29 +15,29 @@
 (def ^:const metric-wait-time 60)
 (def ^:const cache-add-ttl 180)
 
-(defn agg-avg
+(defn- agg-avg
   [data]
   (/ (reduce + data) (count data)))
 
-(defn construct-mkey
+(defn- construct-mkey
   [tenant period rollup time]
   (str/join "-" [tenant period rollup time]))
 
-(defn construct-key
+(defn- construct-key
   ([tenant period rollup time path]
      (str/join "-" [(construct-mkey tenant period rollup time) path]))
   ([mkey path]
      (str/join "-" [mkey path])))
 
-(defn calc-delay
+(defn- calc-delay
   [rollup add]
   (+ rollup metric-wait-time add))
 
-(defn to-ms
+(defn- to-ms
   [sec]
   (* sec 1000))
 
-(defn create-flusher
+(defn- create-flusher
   [mkeys mkey pkeys tenant period rollup time ttl fn-get fn-agg fn-store fn-key]
   (fn []
     (try
@@ -50,7 +50,7 @@
       (catch Exception e
         (info e "Cache flushing exception")))))
 
-(defn run-delayer!
+(defn- run-delayer!
   [rollup fn-flusher]
   (let [delayer (future
                   (Thread/sleep (to-ms (calc-delay rollup (rand-int 59)))))
@@ -61,7 +61,7 @@
                   (fn-flusher))]
     [delayer flusher]))
 
-(defn set-pkeys!
+(defn- set-pkeys!
   [mkeys tenant period rollup time ttl fn-get fn-agg fn-store fn-key]
   (let [mkey (construct-mkey tenant period rollup time)]
     (swap! mkeys
@@ -81,15 +81,16 @@
                 (assoc % mkey pkeys))))
     (get @mkeys mkey)))
 
-(defn set-keys!
+(defn- set-keys!
   [mkeys tenant period rollup time path ttl fn-get fn-agg fn-store fn-key]
   (let [pkeys (set-pkeys! mkeys tenant period rollup time ttl fn-get
                           fn-agg fn-store fn-key)]
     (swap! pkeys #(if (contains? % path) % (conj % path)))
     pkeys))
 
-(defn run-flusher!
+(defn- run-flusher!
   [mkeys]
+  (debug "Flushing the cache...")
   (doseq [[mkey pkeys] @mkeys]
     (let [m (meta @pkeys)
           delayer (get m :delayer nil)
@@ -97,9 +98,10 @@
       (when delayer
         (future-cancel delayer)
         (when flusher
-          (deref flusher))))))
+          (deref flusher)))))
+  (debug "The cache has been flushed"))
 
-(defn store-chan
+(defn- store-chan
   [chan tenant period rollup time path data ttl]
   (>!! chan {:tenant tenant
              :period period
@@ -109,9 +111,9 @@
              :metric data
              :ttl    ttl}))
 
-(defn simple-cache
+(defn in-memory-cache
   [{:keys [store fn-agg] :or {fn-agg agg-avg}}]
-  (info "creating simple store aggregation cache")
+  (info "creating in-memory store aggregation cache")
   (let [mkeys (atom {})
         get-data (fn [pkeys] (get (meta pkeys) :data))
         cache-get (fn [key pkeys] (get @(get-data pkeys) key))
@@ -127,9 +129,7 @@
               adata (get-data @pkeys)]
           (swap! adata #(assoc % ckey (conj (get % ckey) data)))))
       (flush! [this]
-        (debug "Flushing the cache...")
-        (run-flusher! mkeys)
-        (debug "The cache has been flushed"))
+        (run-flusher! mkeys))
       (-show-keys [this] (debug "MKeys:" mkeys))
       (-show-cache [this]
         (debug "Cache:")
