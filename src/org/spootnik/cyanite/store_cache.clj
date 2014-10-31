@@ -90,7 +90,7 @@
 
 (defn- run-flusher!
   [mkeys]
-  (debug "Flushing the cache...")
+  (info "Flushing the cache...")
   (doseq [[mkey pkeys] @mkeys]
     (let [m (meta @pkeys)
           delayer (get m :delayer nil)
@@ -99,7 +99,7 @@
         (future-cancel delayer)
         (when flusher
           (deref flusher)))))
-  (debug "The cache has been flushed"))
+  (info "The cache has been flushed"))
 
 (defn- store-chan
   [chan tenant period rollup time path data ttl]
