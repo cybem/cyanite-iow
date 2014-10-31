@@ -10,9 +10,9 @@
                                                 counter-get counter-list
                                                 counters-reset! counter-inc!
                                                 go-forever]]
-            [clojure.tools.logging      :refer [info debug]]
-            [gloss.core                 :refer [string]]
-            [lamina.core                :refer :all]
+            [clojure.tools.logging        :refer [info debug]]
+            [gloss.core                   :refer [string]]
+            [lamina.core                  :refer :all]
             [clojure.core.async :as async :refer [<! >! >!! go chan timeout]]))
 
 (set! *warn-on-reflection* true)
@@ -91,9 +91,9 @@
 
 (defn start
   "Start a tcp carbon listener"
-  [{:keys [store carbon index stats]}]
+  [{:keys [store-middleware carbon index stats]}]
   (let [indexch (path/channel-for index)
-        insertch (store/channel-for store)
+        insertch (store/channel-for store-middleware)
         chan (chan 100000)
         handler (format-processor chan indexch (:rollups carbon) insertch)]
     (info "starting carbon handler: " carbon)

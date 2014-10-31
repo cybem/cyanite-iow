@@ -3,6 +3,7 @@
   (:import (java.net InetAddress))
   (:require [org.spootnik.cyanite.util :refer [set-aggregator-patterns!
                                                set-blacklist-patterns!]]
+            [org.spootnik.cyanite.store_mware]
             [clj-yaml.core :refer [parse-string]]
             [clojure.string :refer [split]]
             [clojure.tools.logging :refer [error info debug]]))
@@ -54,6 +55,12 @@
   default-blacklist
   {:enabled false
    :path "/etc/cyanite/blacklist.yaml"})
+
+(def default-store-middleware
+  {:use "org.spootnik.cyanite.store_mware/store-middleware"})
+
+(def default-store-cache
+  {:use "org.spootnik.cyanite.store_cache/simple-cache"})
 
 (defn to-seconds
   "Takes a string containing a duration like 13s, 4h etc. and
@@ -142,6 +149,13 @@
     (info "Loading blacklist rules from: " path)
     (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))))
 
+(defn config-with-deps
+  [config entity default deps]
+  (let [settings (merge default (select-keys config deps))]
+    (-> config
+        (update-in [entity] (partial merge settings))
+        (update-in [entity] get-instance entity))))
+
 (defn init
   "Parse yaml then enhance config"
   [path quiet?]
@@ -154,6 +168,9 @@
         (update-in [:stats] (partial merge default-stats))
         (update-in [:store] (partial merge default-store))
         (update-in [:store] get-instance :store)
+        (config-with-deps :store-cache default-store-cache [:store])
+        (config-with-deps :store-middleware default-store-middleware
+                          [:store :store-cache])
         (update-in [:carbon] (partial merge default-carbon))
         (update-in [:carbon :rollups] convert-shorthand-rollups)
         (update-in [:carbon :rollups] assoc-rollup-to)
