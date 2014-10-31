@@ -127,7 +127,9 @@
               adata (get-data @pkeys)]
           (swap! adata #(assoc % ckey (conj (get % ckey) data)))))
       (flush! [this]
-        (run-flusher! mkeys))
+        (debug "Flushing the cache...")
+        (run-flusher! mkeys)
+        (debug "The cache has been flushed"))
       (-show-keys [this] (debug "MKeys:" mkeys))
       (-show-cache [this]
         (debug "Cache:")
