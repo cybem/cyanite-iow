@@ -53,7 +53,8 @@
 (defn- run-delayer!
   [rollup fn-flusher]
   (let [delayer (future
-                  (Thread/sleep (to-ms (calc-delay rollup (rand-int 59)))))
+                  (Thread/sleep
+                   (to-ms (calc-delay rollup (rand-int (dec (int rollup)))))))
         flusher (future
                   (try
                     (deref delayer)
@@ -90,7 +91,7 @@
 
 (defn- run-flusher!
   [mkeys]
-  (debug "Flushing the cache...")
+  (info "Flushing the store cache...")
   (doseq [[mkey pkeys] @mkeys]
     (let [m (meta @pkeys)
           delayer (get m :delayer nil)
@@ -99,7 +100,7 @@
         (future-cancel delayer)
         (when flusher
           (deref flusher)))))
-  (debug "The cache has been flushed"))
+  (info "The store cache has been flushed"))
 
 (defn- store-chan
   [chan tenant period rollup time path data ttl]
