@@ -90,6 +90,7 @@
 
 (defn run-flusher!
   [mkeys]
+  (debug "Flushing the cache...")
   (doseq [[mkey pkeys] @mkeys]
     (let [m (meta @pkeys)
           delayer (get m :delayer nil)
@@ -97,7 +98,8 @@
       (when delayer
         (future-cancel delayer)
         (when flusher
-          (deref flusher))))))
+          (deref flusher)))))
+  (debug "The cache has been flushed"))
 
 (defn store-chan
   [chan tenant period rollup time path data ttl]
@@ -127,9 +129,7 @@
               adata (get-data @pkeys)]
           (swap! adata #(assoc % ckey (conj (get % ckey) data)))))
       (flush! [this]
-        (debug "Flushing the cache...")
-        (run-flusher! mkeys)
-        (debug "The cache has been flushed"))
+        (run-flusher! mkeys))
       (-show-keys [this] (debug "MKeys:" mkeys))
       (-show-cache [this]
         (debug "Cache:")
