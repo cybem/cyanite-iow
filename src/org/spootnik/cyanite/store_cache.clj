@@ -111,9 +111,9 @@
              :metric data
              :ttl    ttl}))
 
-(defn simple-cache
+(defn in-memory-cache
   [{:keys [store fn-agg] :or {fn-agg agg-avg}}]
-  (info "creating simple store aggregation cache")
+  (info "creating in-memory store aggregation cache")
   (let [mkeys (atom {})
         get-data (fn [pkeys] (get (meta pkeys) :data))
         cache-get (fn [key pkeys] (get @(get-data pkeys) key))

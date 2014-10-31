@@ -60,7 +60,7 @@
   {:use "org.spootnik.cyanite.store_mware/store-middleware"})
 
 (def default-store-cache
-  {:use "org.spootnik.cyanite.store_cache/simple-cache"})
+  {:use "org.spootnik.cyanite.store_cache/in-memory-cache"})
 
 (defn to-seconds
   "Takes a string containing a duration like 13s, 4h etc. and
