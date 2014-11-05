@@ -1,5 +1,7 @@
 (ns org.spootnik.cyanite.rollup
-  "Implements rollup finders for different strategies.")
+  "Implements rollup finders for different strategies."
+  (:require [org.spootnik.cyanite.util :refer [now]]
+            [clojure.tools.logging :refer [info error debug]]))
 
 (defprotocol RollupFinder
   (find-rollup [this from to]))
@@ -11,23 +13,23 @@
          rollup-def)))
 
 (defn precise-rollup-finder
+  "Find most precise storage period given the oldest point wanted"
   [{:keys [rollups]}]
   (info "creating precise rollup finder")
   (reify
     RollupFinder
     (find-rollup
-      "Find most precise storage period given the oldest point wanted"
       [this from to]
       (let [within-fn (get-within-fn from)]
         (some within-fn (sort-by :rollup rollups))))))
 
 (defn resolution-rollup-finder
+  "Find most suitable rollup for given resolution"
   [{:keys [rollups resolution]}]
   (info "creating resolution rollup finder")
   (reify
     RollupFinder
     (find-rollup
-      "Find most suitable rollup for given resolution"
       [this from to]
       (let [within-fn (get-within-fn from)
             sorted-rollups (sort-by :rollup rollups)
