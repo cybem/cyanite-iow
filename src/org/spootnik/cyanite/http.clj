@@ -10,29 +10,14 @@
   (:use ring.middleware.keyword-params)
   (:require [ring.util.codec            :as codec]
             [org.spootnik.cyanite.store :as store]
+            [org.spootnik.cyanite.rollup :as rollup]
             [org.spootnik.cyanite.path  :as path]
-            [org.spootnik.cyanite.util  :refer [counter-inc!]]
+            [org.spootnik.cyanite.util  :refer [counter-inc! now]]
             [cheshire.core              :as json]
             [clojure.string             :as str]
             [lamina.core                :refer [enqueue]]
             [clojure.string             :refer [lower-case]]
             [clojure.tools.logging      :refer [info error debug]]))
-
-
-(defn now
-  "Returns a unix epoch"
-  []
-  (quot (System/currentTimeMillis) 1000))
-
-
-(defn find-best-rollup
-  "Find most precise storage period given the oldest point wanted"
-  [from rollups]
-  (let [within (fn [{:keys [rollup period] :as rollup-def}]
-                 (and (>= (Long/parseLong from) (- (now) (* rollup period)))
-                      rollup-def))]
-    (some within (sort-by :rollup rollups))))
-
 
 (defn wrap-local-params [handler params]
   "Adds additional parameters to request"
@@ -68,24 +53,25 @@
     (flatten (pmap (partial lookup-path index tenant) paths))))
 
 (defn metrics-handler [response-channel
-                       {{:keys [index store rollups]} :local-params
+                       {{:keys [index store rollup-finder]} :local-params
                         {:keys [from to path agg tenant]} :params :as request}]
   (debug "fetching paths: " path)
   (enqueue
-    response-channel
+   response-channel
     (try
       (do
         (counter-inc! (keyword (str "tenants." tenant ".metrics_read")) 1)
         {:status 200
-           :headers {"Content-Type" "application/json"}
-           :body (json/generate-string
-                   (if-let [{:keys [rollup period]} (find-best-rollup (str from) rollups)]
-                     (let [to    (if to (Long/parseLong (str to)) (now))
-                           from  (Long/parseLong (str from))
-                           paths (lookup-paths index (or tenant "NONE") path)]
-                       (store/fetch store (or agg "mean") paths (or tenant "NONE") rollup period from to))
-                     {:step nil :from nil :to nil :series {}})
-                   )})
+         :headers {"Content-Type" "application/json"}
+         :body (json/generate-string
+                (let [to (if to (Long/parseLong (str to)) (now))
+                      from (Long/parseLong (str from))]
+                  (if-let [{:keys [rollup period]}
+                           (rollup/find-rollup rollup-finder from to)]
+                    (let [paths (lookup-paths index (or tenant "NONE") path)]
+                      (store/fetch store (or agg "mean") paths (or tenant "NONE")
+                                   rollup period from to))
+                    {:step nil :from nil :to nil :series {}})))})
       (catch Exception e
         (let [{:keys [status body suppress?]} (ex-data e)]
           (when-not suppress?
@@ -93,7 +79,7 @@
           {:status (or status 500)
            :headers {"Content-Type" "application/json"}
            :body    (json/generate-string
-                      (or body {:error (.getMessage e)}))})))))
+                     (or body {:error (.getMessage e)}))})))))
 
 (def handler
   (app
@@ -113,8 +99,8 @@
 (defn start
   "Start the API, handling each request by parsing parameters and
    routes then handing over to the request processor"
-  [{:keys [http store-middleware carbon index] :as config}]
+  [{:keys [http store-middleware rollup-finder index] :as config}]
   (start-http-server (wrap-ring-handler  (wrap-local-params handler {:store store-middleware
-                                                                     :rollups (:rollups carbon)
+                                                                     :rollup-finder rollup-finder
                                                                      :index index})) http)
   nil)

@@ -122,7 +122,6 @@
                     (close! out)))))))
     out))
 
-
 (defn distinct-by
   [by coll]
   (let [step (fn step [xs seen]
@@ -133,3 +132,8 @@
                      (cons f (lazy-seq
                               (step (rest s) (conj seen (by f)))))))))]
     (step coll #{})))
+
+(defn now
+  "Returns a unix epoch"
+  []
+  (quot (System/currentTimeMillis) 1000))

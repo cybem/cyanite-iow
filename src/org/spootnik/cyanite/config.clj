@@ -62,6 +62,9 @@
 (def default-store-cache
   {:use "org.spootnik.cyanite.store_cache/in-memory-cache"})
 
+(def default-rollup-finder
+  {:use "org.spootnik.cyanite.rollup/precise-rollup-finder"})
+
 (defn to-seconds
   "Takes a string containing a duration like 13s, 4h etc. and
    converts it to seconds"
@@ -156,6 +159,14 @@
         (update-in [entity] (partial merge settings))
         (update-in [entity] get-instance entity))))
 
+(defn config-rollup-finder
+  [config]
+  (let [settings (merge default-rollup-finder
+                        (select-keys (:carbon config) [:rollups]))]
+    (-> config
+        (update-in [:rollup-finder] (partial merge settings))
+        (update-in [:rollup-finder] get-instance :rollup-finder))))
+
 (defn init
   "Parse yaml then enhance config"
   [path quiet?]
@@ -178,4 +189,5 @@
         (update-in [:index] get-instance :index)
         (update-in [:http] (partial merge default-http))
         (update-in [:aggregator] (partial merge default-aggregator))
-        (update-in [:blacklist] (partial merge default-blacklist)))))
+        (update-in [:blacklist] (partial merge default-blacklist))
+        (config-rollup-finder))))
