@@ -25,7 +25,7 @@
 
 (defn resolution-rollup-finder
   "Find most suitable rollup for given resolution"
-  [{:keys [rollups resolution]}]
+  [{:keys [rollups resolution] :or {resolution 800}}]
   (info "creating resolution rollup finder")
   (reify
     RollupFinder
