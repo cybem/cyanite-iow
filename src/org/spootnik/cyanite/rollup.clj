@@ -2,19 +2,20 @@
   "Implements rollup finders for different strategies.")
 
 (defprotocol RollupFinder
-  (find-best-rollup [this from to]))
+  (find-rollup [this from to]))
 
 (defn get-within-fn
   [from]
   (fn [{:keys [rollup period] :as rollup-def}]
-    (and (>= (Long/parseLong from) (- (now) (* rollup period)))
+    (and (>= from (- (now) (* rollup period)))
          rollup-def)))
 
 (defn precise-rollup-finder
   [{:keys [rollups]}]
+  (info "creating precise rollup finder")
   (reify
     RollupFinder
-    (find-best-rollup
+    (find-rollup
       "Find most precise storage period given the oldest point wanted"
       [this from to]
       (let [within-fn (get-within-fn from)]
@@ -22,9 +23,10 @@
 
 (defn resolution-rollup-finder
   [{:keys [rollups resolution]}]
+  (info "creating resolution rollup finder")
   (reify
     RollupFinder
-    (find-best-rollup
+    (find-rollup
       "Find most suitable rollup for given resolution"
       [this from to]
       (let [within-fn (get-within-fn from)
@@ -32,4 +34,4 @@
             within (filter within-fn sorted-rollups)
             resolution-fn (fn [{:keys [rollup period] :as rollup-def}]
                             (>= (/ (- to from) rollup) resolution))]
-        (or (some resolution-fn (rseq within)) (first within))))))
+        (and within (or (some resolution-fn (rseq within)) (first within)))))))
