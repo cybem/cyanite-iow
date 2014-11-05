@@ -16,7 +16,6 @@
   "Find most precise storage period given the oldest point wanted"
   [{:keys [rollups]}]
   (info "creating precise rollup finder")
-  (info "rollups:" rollups)
   (reify
     RollupFinder
     (find-rollup
@@ -28,8 +27,6 @@
   "Find most suitable rollup for given resolution"
   [{:keys [rollups resolution] :or {resolution 800}}]
   (info "creating resolution rollup finder")
-  (info "rollups:" rollups)
-  (info "resolution:" resolution)
   (reify
     RollupFinder
     (find-rollup
@@ -38,5 +35,6 @@
             sorted-rollups (sort-by :rollup rollups)
             within (filter within-fn sorted-rollups)
             resolution-fn (fn [{:keys [rollup period] :as rollup-def}]
-                            (>= (/ (- to from) rollup) resolution))]
-        (and within (or (some resolution-fn (rseq within)) (first within)))))))
+                            (and (>= (/ (- to from) rollup) resolution)
+                                 rollup-def))]
+        (and within (or (some resolution-fn (reverse within)) (first within)))))))
