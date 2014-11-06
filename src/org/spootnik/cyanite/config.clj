@@ -2,7 +2,8 @@
   "Yaml config parser, with a poor man's dependency injector"
   (:import (java.net InetAddress))
   (:require [org.spootnik.cyanite.util :refer [set-aggregator-patterns!
-                                               set-blacklist-patterns!]]
+                                               set-blacklist-patterns!
+                                               nested-select-keys]]
             [org.spootnik.cyanite.store_mware]
             [clj-yaml.core :refer [parse-string]]
             [clojure.string :refer [split]]
@@ -154,18 +155,10 @@
 
 (defn config-instance
   [config entity default & [deps]]
-  (let [settings (merge default (select-keys config deps))]
+  (let [settings (merge default (nested-select-keys config deps))]
     (-> config
         (update-in [entity] (partial merge settings))
         (update-in [entity] get-instance entity))))
-
-(defn config-rollup-finder
-  [config]
-  (let [settings (merge default-rollup-finder
-                        (select-keys (:carbon config) [:rollups]))]
-    (-> config
-        (update-in [:rollup-finder] (partial merge settings))
-        (update-in [:rollup-finder] get-instance :rollup-finder))))
 
 (defn init
   "Parse yaml then enhance config"
@@ -187,4 +180,4 @@
         (update-in [:http] (partial merge default-http))
         (update-in [:aggregator] (partial merge default-aggregator))
         (update-in [:blacklist] (partial merge default-blacklist))
-        (config-rollup-finder))))
+        (config-instance :rollup-finder default-rollup-finder [:rollups]))))
