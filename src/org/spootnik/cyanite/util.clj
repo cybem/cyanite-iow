@@ -137,3 +137,11 @@
   "Returns a unix epoch"
   []
   (quot (System/currentTimeMillis) 1000))
+
+(defn nested-select-keys
+  "Nested select-keys."
+  [map keyseq]
+  (reduce-kv (fn [a k v]
+               (merge a (if (map? v) (nested-select-keys v keyseq) {})))
+             (select-keys map keyseq)
+             map))
