@@ -153,13 +153,7 @@
     (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))))
 
 (defn config-instance
-  [config entity default]
-  (-> config
-      (update-in [entity] (partial merge default))
-      (update-in [entity] get-instance entity)))
-
-(defn config-with-deps
-  [config entity default deps]
+  [config entity default & deps]
   (let [settings (merge default (select-keys config deps))]
     (-> config
         (update-in [entity] (partial merge settings))
@@ -183,9 +177,9 @@
         (config-instance :logging default-logging)
         (update-in [:stats] (partial merge default-stats))
         (config-instance :store default-store)
-        (config-with-deps :store-cache default-store-cache [:store])
-        (config-with-deps :store-middleware default-store-middleware
-                          [:store :store-cache])
+        (config-instance :store-cache default-store-cache [:store])
+        (config-instance :store-middleware default-store-middleware
+                         [:store :store-cache])
         (update-in [:carbon] (partial merge default-carbon))
         (update-in [:carbon :rollups] convert-shorthand-rollups)
         (update-in [:carbon :rollups] assoc-rollup-to)
