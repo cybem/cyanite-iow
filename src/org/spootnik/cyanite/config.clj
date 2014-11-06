@@ -152,6 +152,12 @@
     (info "Loading blacklist rules from: " path)
     (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))))
 
+(defn config-instance
+  [config entity default]
+  (-> config
+      (update-in [entity] (partial merge default))
+      (update-in [entity] get-instance entity)))
+
 (defn config-with-deps
   [config entity default deps]
   (let [settings (merge default (select-keys config deps))]
@@ -174,19 +180,16 @@
     (when-not quiet?
       (println "starting with configuration: " path))
     (-> (load-path path)
-        (update-in [:logging] (partial merge default-logging))
-        (update-in [:logging] get-instance :logging)
+        (config-instance :logging default-logging)
         (update-in [:stats] (partial merge default-stats))
-        (update-in [:store] (partial merge default-store))
-        (update-in [:store] get-instance :store)
+        (config-instance :store default-store)
         (config-with-deps :store-cache default-store-cache [:store])
         (config-with-deps :store-middleware default-store-middleware
                           [:store :store-cache])
         (update-in [:carbon] (partial merge default-carbon))
         (update-in [:carbon :rollups] convert-shorthand-rollups)
         (update-in [:carbon :rollups] assoc-rollup-to)
-        (update-in [:index] (partial merge default-index))
-        (update-in [:index] get-instance :index)
+        (config-instance :index default-index)
         (update-in [:http] (partial merge default-http))
         (update-in [:aggregator] (partial merge default-aggregator))
         (update-in [:blacklist] (partial merge default-blacklist))
