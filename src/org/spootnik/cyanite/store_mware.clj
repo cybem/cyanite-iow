@@ -42,13 +42,18 @@
         (cache/put! store-cache tenant period rollup (rollup-to time) path data
                     ttl agg-avg fn-store)))))
 
+(defn- put!
+  [min-rollup store-cache fn-store tenant period rollup time path metric ttl]
+  (let [fn-agg (partial aggregate-with :avg)]
+    (when (= min-rollup rollup)
+      (cache/put! store-cache tenant (int period) (int rollup) time
+                  path metric (int ttl) fn-agg fn-store))))
+
 (defn store-middleware-cache
   [{:keys [store store-cache chan_size rollups] :or {chan_size 10000}}]
   (info "creating caching metric store middleware")
-  (let [schan (store/channel-for store)
-        min-rollup (get-min-rollup rollups)
-        fn-store (store-agg-fn store-cache schan rollups)
-        agg-avg (partial aggregate-with :avg)]
+  (let [fn-store (store-agg-fn store-cache (store/channel-for store) rollups)
+        fn-put! (partial put! (get-min-rollup rollups) store-cache fn-store)]
     (reify
       store/Metricstore
       (channel-for [this]
@@ -56,12 +61,9 @@
           (go-forever
            (let [data (<! ch)
                  {:keys [metric tenant path time rollup period ttl]} data]
-             (when (= min-rollup rollup)
-               (cache/put! store-cache tenant (int period) (int rollup) time
-                           path metric (int ttl) agg-avg fn-store))))
+             (fn-put! tenant period rollup time path data ttl)))
           ch))
       (insert [this ttl data tenant rollup period path time]
-        (cache/put! store-cache tenant period rollup time path data ttl
-                    (partial aggregate-with :avg) fn-store))
+        (fn-put! tenant period rollup time path data ttl))
       (fetch [this agg paths tenant rollup period from to]
         (store/fetch store agg paths tenant rollup period from to)))))
