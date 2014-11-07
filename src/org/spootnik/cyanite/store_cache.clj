@@ -19,6 +19,10 @@
   [data]
   (/ (reduce + data) (count data)))
 
+(defn agg-sum
+  [data]
+  (reduce + data))
+
 (defn- construct-mkey
   [tenant period rollup time]
   (str/join "-" [tenant period rollup time]))
