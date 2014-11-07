@@ -5,7 +5,7 @@
             [clojure.tools.logging :refer [error info debug]]
             [org.spootnik.cyanite.store :as store]
             [org.spootnik.cyanite.store_cache :as cache]
-            [org.spootnik.cyanite.util :refer [go-forever]]))
+            [org.spootnik.cyanite.util :refer [go-forever get-min-rollup]]))
 
 (defn store-middleware
   [{:keys [store]}]
@@ -32,7 +32,7 @@
 (defn store-agg-fn
   [store-cache schan rollups]
   (let [fn-store (partial store-chan schan)
-        min-rollup (:min (meta rollups))
+        min-rollup (get-min-rollup rollups)
         rollups (filter #(not= (:rollup %) min-rollup) rollups)]
     (fn [tenant period rollup time path data ttl]
       (fn-store tenant period rollup time path data ttl)
@@ -44,7 +44,7 @@
   [{:keys [store store-cache chan_size rollups] :or {chan_size 10000}}]
   (info "creating caching metric store middleware")
   (let [schan (store/channel-for store)
-        min-rollup (:min (meta rollups))
+        min-rollup (get-min-rollup rollups)
         fn-store (store-agg-fn store-cache schan rollups)]
     (reify
       store/Metricstore
