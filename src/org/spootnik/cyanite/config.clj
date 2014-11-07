@@ -185,4 +185,6 @@
         (update-in [:http] (partial merge default-http))
         (update-in [:aggregator] (partial merge default-aggregator))
         (update-in [:blacklist] (partial merge default-blacklist))
-        (config-instance :rollup-finder default-rollup-finder [:rollups]))))
+        (config-instance :rollup-finder default-rollup-finder [:rollups]))
+    (catch Exception e
+      (info e "Config processing exception"))))
