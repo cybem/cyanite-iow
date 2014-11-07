@@ -109,7 +109,7 @@
 
 (defn assoc-min-rollup
   [rollups]
-  (assoc rollups :min (:rollup (first (sort-by :rollup rollups)))))
+  (with-meta rollups {:min (:rollup (first (sort-by :rollup rollups)))}))
 
 (defn find-ns-var
   "Find a symbol in a namespace"

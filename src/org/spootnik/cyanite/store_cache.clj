@@ -1,7 +1,6 @@
 (ns org.spootnik.cyanite.store_cache
   "Caching facility for Cyanite"
   (:require [clojure.string :as str]
-            [clojure.core.async :as async :refer [>!!]]
             [clojure.tools.logging :refer [error info debug]]
             [org.spootnik.cyanite.store :as store]))
 
@@ -105,16 +104,6 @@
         (when flusher
           (deref flusher)))))
   (info "The store cache has been flushed"))
-
-(defn store-chan
-  [chan tenant period rollup time path data ttl]
-  (>!! chan {:tenant tenant
-             :period period
-             :rollup rollup
-             :time   time
-             :path   path
-             :metric data
-             :ttl    ttl}))
 
 (defn in-memory-cache
   []
