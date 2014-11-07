@@ -106,7 +106,7 @@
   (info "The store cache has been flushed"))
 
 (defn in-memory-cache
-  []
+  [config]
   (info "creating in-memory store aggregation cache")
   (let [mkeys (atom {})
         get-data (fn [pkeys] (get (meta pkeys) :data))
