@@ -5,7 +5,8 @@
             [clojure.tools.logging :refer [error info debug]]
             [org.spootnik.cyanite.store :as store]
             [org.spootnik.cyanite.store_cache :as cache]
-            [org.spootnik.cyanite.util :refer [go-forever get-min-rollup]]))
+            [org.spootnik.cyanite.util :refer [go-forever get-min-rollup
+                                               aggregate-with]]))
 
 (defn store-middleware
   [{:keys [store]}]
@@ -33,19 +34,21 @@
   [store-cache schan rollups]
   (let [fn-store (partial store-chan schan)
         min-rollup (get-min-rollup rollups)
-        rollups (filter #(not= (:rollup %) min-rollup) rollups)]
+        rollups (filter #(not= (:rollup %) min-rollup) rollups)
+        agg-avg (partial aggregate-with :avg)]
     (fn [tenant period rollup time path data ttl]
       (fn-store tenant period rollup time path data ttl)
       (for [{:keys [rollup period ttl rollup-to]} rollups]
         (cache/put! store-cache tenant period rollup (rollup-to time) path data
-                    ttl cache/agg-avg fn-store)))))
+                    ttl agg-avg fn-store)))))
 
 (defn store-middleware-cache
   [{:keys [store store-cache chan_size rollups] :or {chan_size 10000}}]
   (info "creating caching metric store middleware")
   (let [schan (store/channel-for store)
         min-rollup (get-min-rollup rollups)
-        fn-store (store-agg-fn store-cache schan rollups)]
+        fn-store (store-agg-fn store-cache schan rollups)
+        agg-avg (partial aggregate-with :avg)]
     (reify
       store/Metricstore
       (channel-for [this]
@@ -55,10 +58,10 @@
                  {:keys [metric tenant path time rollup period ttl]} data]
              (when (= min-rollup rollup)
                (cache/put! store-cache tenant (int period) (int rollup) time
-                           path metric (int ttl) cache/agg-avg fn-store))))
+                           path metric (int ttl) agg-avg fn-store))))
           ch))
       (insert [this ttl data tenant rollup period path time]
         (cache/put! store-cache tenant period rollup time path data ttl
-                    cache/agg-avg fn-store))
+                    (partial aggregate-with :avg) fn-store))
       (fetch [this agg paths tenant rollup period from to]
         (store/fetch store agg paths tenant rollup period from to)))))

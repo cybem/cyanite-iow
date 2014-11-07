@@ -149,3 +149,40 @@
                (merge a (if (map? v) (nested-select-keys v keyseq) {})))
              (select-keys map keyseq)
              map))
+
+;;
+;; The next section contains a series of path matching functions
+
+
+(defmulti aggregate-with
+  "This transforms a raw list of points according to the provided aggregation
+   method. Each point is stored as a list of data points, so multiple
+   methods make sense (max, min, mean). Additionally, a raw method is
+   provided"
+  (comp first list))
+
+(defmethod aggregate-with :avg
+  [data]
+  (if (seq data)
+    (/ (reduce + 0.0 data) (count data))
+    data))
+
+(defmethod aggregate-with :sum
+  [data]
+  (reduce + 0.0 data))
+
+(defmethod aggregate-with :max
+  [data]
+  (apply max data))
+
+(defmethod aggregate-with :min
+  [data]
+  (apply min data))
+
+(defmethod aggregate-with :raw
+  [data]
+  data)
+
+(defmethod aggregate-with :mean
+  [data]
+  (aggregate-with :avg data))
