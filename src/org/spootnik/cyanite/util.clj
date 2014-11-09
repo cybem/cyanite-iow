@@ -2,7 +2,7 @@
   (:require [clojure.core.async :as async :refer [alt! chan >! close! go
                                                   timeout >!! go-loop
                                                   dropping-buffer]]
-            [clojure.tools.logging :refer [info warn error]]))
+            [clojure.tools.logging :refer [debug info warn error]]))
 
 (defmacro go-forever
   [body]
@@ -162,27 +162,27 @@
   (comp first list))
 
 (defmethod aggregate-with :avg
-  [data]
+  [_ data]
   (if (seq data)
     (/ (reduce + 0.0 data) (count data))
     data))
 
 (defmethod aggregate-with :sum
-  [data]
+  [_ data]
   (reduce + 0.0 data))
 
 (defmethod aggregate-with :max
-  [data]
+  [_ data]
   (apply max data))
 
 (defmethod aggregate-with :min
-  [data]
+  [_ data]
   (apply min data))
 
 (defmethod aggregate-with :raw
-  [data]
+  [_ data]
   data)
 
 (defmethod aggregate-with :mean
-  [data]
+  [_ data]
   (aggregate-with :avg data))

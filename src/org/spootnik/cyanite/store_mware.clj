@@ -20,7 +20,7 @@
     (fetch [this agg paths tenant rollup period from to]
       (store/fetch store agg paths tenant rollup period from to))))
 
-(defn store-chan
+(defn- store-chan
   [chan tenant period rollup time path data ttl]
   (>!! chan {:tenant tenant
              :period period
@@ -30,7 +30,7 @@
              :metric data
              :ttl    ttl}))
 
-(defn store-agg-fn
+(defn- store-agg-fn
   [store-cache schan rollups]
   (let [fn-store (partial store-chan schan)
         min-rollup (get-min-rollup rollups)
@@ -38,7 +38,7 @@
         agg-avg (partial aggregate-with :avg)]
     (fn [tenant period rollup time path data ttl]
       (fn-store tenant period rollup time path data ttl)
-      (for [{:keys [rollup period ttl rollup-to]} rollups]
+      (doseq [{:keys [rollup period ttl rollup-to]} rollups]
         (cache/put! store-cache tenant period rollup (rollup-to time) path data
                     ttl agg-avg fn-store)))))
 
@@ -61,7 +61,7 @@
           (go-forever
            (let [data (<! ch)
                  {:keys [metric tenant path time rollup period ttl]} data]
-             (fn-put! tenant period rollup time path data ttl)))
+             (fn-put! tenant period rollup time path metric ttl)))
           ch))
       (insert [this ttl data tenant rollup period path time]
         (fn-put! tenant period rollup time path data ttl))
