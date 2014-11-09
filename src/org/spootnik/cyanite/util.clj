@@ -186,3 +186,9 @@
 (defmethod aggregate-with :mean
   [_ data]
   (aggregate-with :avg data))
+
+(defn agg-fn-by-path
+  [path]
+  (if-let [[_ method] (re-find #"^(sum|avg|mean|min|max|raw)\..*" path)]
+    (partial aggregate-with (keyword method))
+    (partial aggregate-with :avg)))

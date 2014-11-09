@@ -6,7 +6,7 @@
             [org.spootnik.cyanite.store :as store]
             [org.spootnik.cyanite.store_cache :as cache]
             [org.spootnik.cyanite.util :refer [go-forever get-min-rollup
-                                               aggregate-with]]))
+                                               aggregate-with agg-fn-by-path]]))
 
 (defn store-middleware
   [{:keys [store]}]
@@ -44,7 +44,7 @@
 
 (defn- put!
   [min-rollup store-cache fn-store tenant period rollup time path metric ttl]
-  (let [fn-agg (partial aggregate-with :avg)]
+  (let [fn-agg (agg-fn-by-path path)]
     (when (= min-rollup rollup)
       (cache/put! store-cache tenant (int period) (int rollup) time
                   path metric (int ttl) fn-agg fn-store))))
