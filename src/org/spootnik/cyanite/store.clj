@@ -5,7 +5,10 @@
    swap implementations"
   (:require [clojure.string              :as str]
             [qbits.alia                  :as alia]
-            [org.spootnik.cyanite.util :refer [partition-or-time go-forever go-catch counter-inc!]]
+            [org.spootnik.cyanite.util   :refer [partition-or-time
+                                                 go-forever go-catch
+                                                 counter-inc!
+                                                 agg-fn-by-path]]
             [clojure.tools.logging       :refer [error info debug]]
             [lamina.core                 :refer [channel receive-all]]
             [clojure.core.async :as async :refer [<! >! go chan]]
@@ -68,65 +71,13 @@
   (format "USE %s;" (name keyspace)))
 
 ;;
-;; The next section contains a series of path matching functions
-
-
-(defmulti aggregate-with
-  "This transforms a raw list of points according to the provided aggregation
-   method. Each point is stored as a list of data points, so multiple
-   methods make sense (max, min, mean). Additionally, a raw method is
-   provided"
-  (comp first list))
-
-(defmethod aggregate-with :mean
-  [_ {:keys [data] :as metric}]
-  (if (seq data)
-    (-> metric
-        (dissoc :data)
-        (assoc :metric (/ (reduce + 0.0 data) (count data))))
-    metric))
-
-(defmethod aggregate-with :sum
-  [_ {:keys [data] :as metric}]
-  (-> metric
-      (dissoc :data)
-      (assoc :metric (reduce + 0.0 data))))
-
-(defmethod aggregate-with :max
-  [_ {:keys [data] :as metric}]
-  (-> metric
-      (dissoc :data)
-      (assoc :metric (apply max data))))
-
-(defmethod aggregate-with :min
-  [_ {:keys [data] :as metric}]
-  (-> metric
-      (dissoc :data)
-      (assoc :metric (apply min data))))
-
-(defmethod aggregate-with :raw
-  [_ {:keys [data] :as metric}]
-  (-> metric
-      (dissoc :data)
-      (assoc :metric data)))
-
-(defmethod aggregate-with :avg
-           [_ {:keys [data] :as metric}]
-  (if (seq data)
-    (-> metric
-        (dissoc :data)
-        (assoc :metric (/ (reduce + 0.0 data) (count data))))
-    metric))
-
-;;
 ;; if no method given parse metric name and select aggregation function
 ;;
 (defn detect-aggregate
   [{:keys [path] :as metric}]
-  (if-let [[_ m] (re-find #"^(sum|avg|mean|min|max|raw)\..*" path)]
-    (aggregate-with (keyword m) metric)
-    (aggregate-with :mean metric)))
-
+  (-> metric
+      (dissoc :data)
+      (assoc :metric (apply (agg-fn-by-path path) metric))))
 
 (defn max-points
   "Returns the maximum number of points to expect for
