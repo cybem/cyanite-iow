@@ -107,10 +107,6 @@
          (assoc rollup-def :rollup-to #(-> % (quot rollup) (* rollup))))
        rollups))
 
-(defn assoc-min-rollup
-  [rollups]
-  (with-meta rollups {:min (:rollup (first (sort-by :rollup rollups)))}))
-
 (defn find-ns-var
   "Find a symbol in a namespace"
   [s]
@@ -177,7 +173,6 @@
         (update-in [:carbon] (partial merge default-carbon))
         (update-in [:carbon :rollups] convert-shorthand-rollups)
         (update-in [:carbon :rollups] assoc-rollup-to)
-        (update-in [:carbon :rollups] assoc-min-rollup)
         (config-instance :store-cache default-store-cache)
         (config-instance :store-middleware default-store-middleware
                          [:store :store-cache :rollups])

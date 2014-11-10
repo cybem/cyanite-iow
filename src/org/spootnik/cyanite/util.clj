@@ -138,10 +138,6 @@
   []
   (quot (System/currentTimeMillis) 1000))
 
-(defn get-min-rollup
-  [rollups]
-  (:min (meta rollups)))
-
 (defn nested-select-keys
   "Nested select-keys."
   [map keyseq]
