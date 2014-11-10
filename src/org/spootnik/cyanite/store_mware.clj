@@ -5,8 +5,7 @@
             [clojure.tools.logging :refer [error info debug]]
             [org.spootnik.cyanite.store :as store]
             [org.spootnik.cyanite.store_cache :as cache]
-            [org.spootnik.cyanite.util :refer [go-forever aggregate-with
-                                               agg-fn-by-path]]))
+            [org.spootnik.cyanite.util :refer [go-forever aggregate-with]]))
 
 (defn store-middleware
   [{:keys [store]}]
