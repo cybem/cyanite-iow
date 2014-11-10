@@ -74,10 +74,10 @@
 ;; if no method given parse metric name and select aggregation function
 ;;
 (defn detect-aggregate
-  [{:keys [path] :as metric}]
+  [{:keys [path data] :as metric}]
   (-> metric
       (dissoc :data)
-      (assoc :metric (apply (agg-fn-by-path path) metric))))
+      (assoc :metric ((agg-fn-by-path path) data))))
 
 (defn max-points
   "Returns the maximum number of points to expect for
