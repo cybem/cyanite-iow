@@ -2,7 +2,7 @@
   (:require [clojure.core.async :as async :refer [alt! chan >! close! go
                                                   timeout >!! go-loop
                                                   dropping-buffer]]
-            [clojure.tools.logging :refer [info warn error]]))
+            [clojure.tools.logging :refer [debug info warn error]]))
 
 (defmacro go-forever
   [body]
@@ -137,3 +137,58 @@
   "Returns a unix epoch"
   []
   (quot (System/currentTimeMillis) 1000))
+
+(defn get-min-rollup
+  [rollups]
+  (:min (meta rollups)))
+
+(defn nested-select-keys
+  "Nested select-keys."
+  [map keyseq]
+  (reduce-kv (fn [a k v]
+               (merge a (if (map? v) (nested-select-keys v keyseq) {})))
+             (select-keys map keyseq)
+             map))
+
+;;
+;; The next section contains a series of path matching functions
+
+
+(defmulti aggregate-with
+  "This transforms a raw list of points according to the provided aggregation
+   method. Each point is stored as a list of data points, so multiple
+   methods make sense (max, min, mean). Additionally, a raw method is
+   provided"
+  (comp first list))
+
+(defmethod aggregate-with :avg
+  [_ data]
+  (if (seq data)
+    (/ (reduce + 0.0 data) (count data))
+    data))
+
+(defmethod aggregate-with :sum
+  [_ data]
+  (reduce + 0.0 data))
+
+(defmethod aggregate-with :max
+  [_ data]
+  (apply max data))
+
+(defmethod aggregate-with :min
+  [_ data]
+  (apply min data))
+
+(defmethod aggregate-with :raw
+  [_ data]
+  data)
+
+(defmethod aggregate-with :mean
+  [_ data]
+  (aggregate-with :avg data))
+
+(defn agg-fn-by-path
+  [path]
+  (if-let [[_ method] (re-find #"^(sum|avg|mean|min|max|raw)\..*" path)]
+    (partial aggregate-with (keyword method))
+    (partial aggregate-with :avg)))

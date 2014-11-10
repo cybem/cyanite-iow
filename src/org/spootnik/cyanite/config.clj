@@ -2,7 +2,8 @@
   "Yaml config parser, with a poor man's dependency injector"
   (:import (java.net InetAddress))
   (:require [org.spootnik.cyanite.util :refer [set-aggregator-patterns!
-                                               set-blacklist-patterns!]]
+                                               set-blacklist-patterns!
+                                               nested-select-keys]]
             [org.spootnik.cyanite.store_mware]
             [clj-yaml.core :refer [parse-string]]
             [clojure.string :refer [split]]
@@ -106,6 +107,10 @@
          (assoc rollup-def :rollup-to #(-> % (quot rollup) (* rollup))))
        rollups))
 
+(defn assoc-min-rollup
+  [rollups]
+  (with-meta rollups {:min (:rollup (first (sort-by :rollup rollups)))}))
+
 (defn find-ns-var
   "Find a symbol in a namespace"
   [s]
@@ -152,20 +157,12 @@
     (info "Loading blacklist rules from: " path)
     (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))))
 
-(defn config-with-deps
-  [config entity default deps]
-  (let [settings (merge default (select-keys config deps))]
+(defn config-instance
+  [config entity default & [deps]]
+  (let [settings (merge default (nested-select-keys config deps))]
     (-> config
         (update-in [entity] (partial merge settings))
         (update-in [entity] get-instance entity))))
-
-(defn config-rollup-finder
-  [config]
-  (let [settings (merge default-rollup-finder
-                        (select-keys (:carbon config) [:rollups]))]
-    (-> config
-        (update-in [:rollup-finder] (partial merge settings))
-        (update-in [:rollup-finder] get-instance :rollup-finder))))
 
 (defn init
   "Parse yaml then enhance config"
@@ -174,20 +171,20 @@
     (when-not quiet?
       (println "starting with configuration: " path))
     (-> (load-path path)
-        (update-in [:logging] (partial merge default-logging))
-        (update-in [:logging] get-instance :logging)
+        (config-instance :logging default-logging)
         (update-in [:stats] (partial merge default-stats))
-        (update-in [:store] (partial merge default-store))
-        (update-in [:store] get-instance :store)
-        (config-with-deps :store-cache default-store-cache [:store])
-        (config-with-deps :store-middleware default-store-middleware
-                          [:store :store-cache])
+        (config-instance :store default-store)
         (update-in [:carbon] (partial merge default-carbon))
         (update-in [:carbon :rollups] convert-shorthand-rollups)
         (update-in [:carbon :rollups] assoc-rollup-to)
-        (update-in [:index] (partial merge default-index))
-        (update-in [:index] get-instance :index)
+        (update-in [:carbon :rollups] assoc-min-rollup)
+        (config-instance :store-cache default-store-cache)
+        (config-instance :store-middleware default-store-middleware
+                         [:store :store-cache :rollups])
+        (config-instance :index default-index)
         (update-in [:http] (partial merge default-http))
         (update-in [:aggregator] (partial merge default-aggregator))
         (update-in [:blacklist] (partial merge default-blacklist))
-        (config-rollup-finder))))
+        (config-instance :rollup-finder default-rollup-finder [:rollups]))
+    (catch Exception e
+      (info e "Config processing exception"))))

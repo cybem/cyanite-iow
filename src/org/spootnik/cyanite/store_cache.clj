@@ -1,12 +1,11 @@
 (ns org.spootnik.cyanite.store_cache
   "Caching facility for Cyanite"
   (:require [clojure.string :as str]
-            [clojure.core.async :as async :refer [>!!]]
             [clojure.tools.logging :refer [error info debug]]
             [org.spootnik.cyanite.store :as store]))
 
 (defprotocol StoreCache
-  (put! [this tenant period rollup time path data ttl])
+  (put! [this tenant period rollup time path data ttl fn-agg fn-store])
   (flush! [this])
   (-show-keys [this])
   (-show-cache [this])
@@ -14,10 +13,6 @@
 
 (def ^:const metric-wait-time 60)
 (def ^:const cache-add-ttl 180)
-
-(defn- agg-avg
-  [data]
-  (/ (reduce + data) (count data)))
 
 (defn- construct-mkey
   [tenant period rollup time]
@@ -102,28 +97,16 @@
           (deref flusher)))))
   (info "The store cache has been flushed"))
 
-(defn- store-chan
-  [chan tenant period rollup time path data ttl]
-  (>!! chan {:tenant tenant
-             :period period
-             :rollup rollup
-             :time   time
-             :path   path
-             :metric data
-             :ttl    ttl}))
-
 (defn in-memory-cache
-  [{:keys [store fn-agg] :or {fn-agg agg-avg}}]
+  [config]
   (info "creating in-memory store aggregation cache")
   (let [mkeys (atom {})
         get-data (fn [pkeys] (get (meta pkeys) :data))
         cache-get (fn [key pkeys] (get @(get-data pkeys) key))
-        cache-key (fn [tenant period rollup time path] (hash path))
-        schan (store/channel-for store)
-        fn-store (partial store-chan schan)]
+        cache-key (fn [tenant period rollup time path] (hash path))]
     (reify
       StoreCache
-      (put! [this tenant period rollup time path data ttl]
+      (put! [this tenant period rollup time path data ttl fn-agg fn-store]
         (let [ckey (cache-key tenant period rollup time path)
               pkeys (set-keys! mkeys tenant period rollup time path ttl
                                cache-get fn-agg fn-store cache-key)

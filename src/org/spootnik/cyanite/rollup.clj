@@ -24,7 +24,7 @@
         (some within-fn (sort-by :rollup rollups))))))
 
 (defn resolution-rollup-finder
-  "Find most suitable rollup for given resolution"
+  "Find most suitable rollup for given resolution (minimal number of data points)"
   [{:keys [rollups resolution] :or {resolution 800}}]
   (info "creating resolution rollup finder")
   (reify
