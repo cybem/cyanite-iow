@@ -43,10 +43,9 @@
 
 (defn- put!
   [min-rollup store-cache fn-store tenant period rollup time path metric ttl]
-  (let [fn-agg (agg-fn-by-path path)]
-    (when (= min-rollup rollup)
-      (cache/put! store-cache tenant (int period) (int rollup) time
-                  path metric (int ttl) fn-agg fn-store))))
+  (when (= min-rollup rollup)
+    (cache/put! store-cache tenant (int period) (int rollup) time
+                path metric (int ttl) nil fn-store)))
 
 (defn store-middleware-cache
   [{:keys [store store-cache chan_size rollups] :or {chan_size 10000}}]

@@ -37,10 +37,11 @@
   (fn []
     (try
       (doseq [path @pkeys]
-        (fn-store tenant period rollup time path
-                  (fn-agg (fn-get
-                           (fn-key tenant period rollup time path)
-                           @pkeys)) ttl))
+        (let [fn-agg (or fn-agg (agg-fn-by-path path))]
+          (fn-store tenant period rollup time path
+                    (fn-agg (fn-get
+                             (fn-key tenant period rollup time path)
+                             @pkeys)) ttl)))
       (swap! mkeys #(dissoc % mkey))
       (catch Exception e
         (info e "Cache flushing exception")))))
