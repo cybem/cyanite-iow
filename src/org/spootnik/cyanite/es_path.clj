@@ -183,8 +183,8 @@
 (defn es-native
   [{:keys [index host port cluster_name]
     :or {index "cyanite" host "localhost" port 9300 cluster_name "elasticsearch"}}]
-  (let [conn (esn/connect [[host port]]
-                         {"cluster.name" cluster_name})
+  (let [hosts (map #([% port]) (if (sequential? host) host [host]))
+        conn (esn/connect hosts {"cluster.name" cluster_name})
         existsfn (partial esnd/present? conn index ES_DEF_TYPE)
         updatefn (partial esnd/async-put conn index ES_DEF_TYPE)
         scrollfn (partial esnd/scroll-seq conn)
