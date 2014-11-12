@@ -185,6 +185,6 @@
 
 (defn agg-fn-by-path
   [path]
-  (if-let [[_ method] (re-find #"^(sum|avg|mean|min|max|raw)\..*" path)]
+  (if-let [[_ method] (re-find #"^(sum|avg|mean|min|max|raw)(\.|\-).*" path)]
     (partial aggregate-with (keyword method))
     (partial aggregate-with :avg)))
