@@ -182,7 +182,8 @@
 
 (defn es-native
   [{:keys [index host port cluster_name]
-    :or {index "cyanite" host "localhost" port 9300 cluster_name "elasticsearch"}}]
+    :or {index "cyanite" host "localhost" port 9300 cluster_name "elasticsearch"
+         chan_size 10000}}]
   (let [hosts (map #(vector % port) (if (sequential? host) host [host]))
         conn (esn/connect hosts {"cluster.name" cluster_name})
         existsfn (partial esnd/present? conn index ES_DEF_TYPE)
@@ -197,9 +198,9 @@
       (register [this tenant path]
         (add-path updatefn existsfn tenant path))
       (channel-for [this]
-        (let [es-chan (chan 10000)
-              all-paths (chan 10000)
-              create-path (chan 10000)]
+        (let [es-chan (chan chan_size)
+              all-paths (chan chan_size)
+              create-path (chan chan_size)]
           (go-forever
             (let [p (<! es-chan)]
               (doseq [ap (es-all-paths (get p 0) (get p 1))]
