@@ -176,7 +176,7 @@
               (map :path (search queryfn scrollfn tenant path true))))))
 
 (defn es-native
-  [{:keys [index host port cluster_name]
+  [{:keys [index host port cluster_name chan_size]
     :or {index "cyanite" host "localhost" port 9300 cluster_name "elasticsearch"
          chan_size 10000}}]
   (let [hosts (map #(vector % port) (if (sequential? host) host [host]))
