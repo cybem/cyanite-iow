@@ -5,6 +5,7 @@
             [org.spootnik.cyanite.http        :as http]
             [org.spootnik.cyanite.config      :as config]
             [clojure.tools.cli                :refer [cli]]
+            [org.spootnik.cyanite.es-path]
             [org.spootnik.cyanite.store_cache :as cache]))
 
 (require 'beckon)
