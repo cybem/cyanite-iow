@@ -68,11 +68,11 @@
   [path]
   (-> path
       ;; Wildcards
-      (str/replace #"\\.|\\*" {"." "\\." "*" ".*" })
+      (str/replace #"\.|\*" {"." "\\." "*" ".*" })
       ;; Lists
       (str/replace #"\{|\}|," {"{" "(" "}" ")" "," "|"})
       ;; Ranges
-      (str/repalce #"\[(\d+)-(\d+)\]"
+      (str/replace #"\[(\d+)-(\d+)\]"
                    (fn [[_ r1s r2s]]
                      (let [r1i (Integer/parseInt r1s)
                            r2i (Integer/parseInt r2s)
