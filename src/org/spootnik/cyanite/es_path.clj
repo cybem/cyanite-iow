@@ -66,12 +66,38 @@
 (defn process-wildcards
   "Convert Graphite wildcards to regular expression"
   [path]
-  (reduce (fn [s r] (str/replace s (first r) (second r)))
-          path [["." "\\."]
-                ["*" ".*"]
-                ["{" "("]
-                ["}" ")"]
-                ["," "|"]]))
+  (let [p (reduce (fn [s r] (str/replace s (first r) (second r)))
+                      path [["." "\\."]
+                            ["*" ".*"]
+                            ["{" "("]
+                            ["}" ")"]
+                            ["," "|"]])
+        r (doseq [m (re-seq #"\[(\d+)-(\d+)\]" p)]
+            (let [r1 (int (m 2))
+                  r2 (int (m 3))
+                  rbeg (min [r1 r2])
+                  rend (max [r1 r2])
+                  n (format "(%s)"(str/join "|"(range rbeg (inc rend))))]
+              [(m 1) n]))]
+    (reduce #(replace ))
+    ))
+
+(defn process-wildcards
+  "Convert Graphite wildcards to regular expression"
+  [path]
+  (let [p (reduce (fn [s r] (str/replace s (first r) (second r)))
+                  path [["." "\\."]
+                        ["*" ".*"]
+                        ["{" "("]
+                        ["}" ")"]
+                        ["," "|"]])]
+    (str/repalce p #"\[(\d+)-(\d+)\]"
+                 (fn [[_ r1s r2s]]
+                   (let [r1 (Integer/parseInt r1s)
+                         r2 (Integer/parseInt r2s)
+                         rbeg (apply min [r1 r2])
+                         rend (apply max [r1 r2])]
+                     (format "(%s)" (str/join "|" (range rbeg (inc rend)))))))))
 
 (defn build-es-filter
   "generate the filter portion of an es query"
