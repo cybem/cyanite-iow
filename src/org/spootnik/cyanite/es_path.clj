@@ -63,16 +63,28 @@
                 (inc depth)
                 (inc nxt-dex)))))))))
 
+(defn process-wildcards
+  "Convert Graphite wildcards to regular expression"
+  [path]
+  (-> path
+      ;; Wildcards
+      (str/replace #"\.|\*" {"." "\\." "*" ".*" })
+      ;; Lists
+      (str/replace #"\{|\}|," {"{" "(" "}" ")" "," "|"})
+      ;; Ranges
+      (str/replace #"\[(\d+)-(\d+)\]"
+                   (fn [[_ r1s r2s]]
+                     (let [r1i (Integer/parseInt r1s)
+                           r2i (Integer/parseInt r2s)
+                           r1 (apply min [r1i r2i])
+                           r2 (apply max [r1i r2i])]
+                       (format "(%s)" (str/join "|" (range r1 (inc r2)))))))))
+
 (defn build-es-filter
   "generate the filter portion of an es query"
   [path tenant leafs-only]
   (let [depth (path-depth path)
-        p (reduce (fn [s r] (str/replace s (first r) (second r)))
-                  path [["." "\\."]
-                        ["*" ".*"]
-                        ["{" "("]
-                        ["}" ")"]
-                        ["," "|"]])
+        p (process-wildcards path)
         f (vector
            {:range {:depth {:from depth :to depth}}}
            {:term {:tenant tenant}}
