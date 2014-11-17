@@ -163,8 +163,6 @@
                (let [values (map
                              #(let [{:keys [metric tenant path time rollup period ttl]} %]
                                 (counter-inc! (keyword (str "tenants." tenant ".write_count")) 1)
-                                (when (and (sequential? metric) (> (count metric) 1))
-                                  (error "DATAERROR!!!" metric tenant path time rollup period))
                                 [(int ttl) [metric] tenant (int rollup) (int period) path time])
                              payload)]
                  (alia/execute-async
@@ -181,8 +179,6 @@
                  (info e "Store processing exception")))))
           ch))
       (insert [this ttl data tenant rollup period path time]
-        (when (and (sequential? data) (> (count data) 1))
-          (error "DATAERROR!!!" data tenant path time rollup period))
         (alia/execute-async
          session
          insert!
