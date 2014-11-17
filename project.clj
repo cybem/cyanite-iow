@@ -1,4 +1,4 @@
-(defproject org.spootnik/cyanite "0.2.16"
+(defproject org.spootnik/cyanite "0.2.17"
   :description "Alternative storage backend for graphite, backed by cassandra"
   :url "https://github.com/pyr/cyanite"
   :license {:name "MIT License"
