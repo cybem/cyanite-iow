@@ -188,7 +188,7 @@
         (if-let [data (and (seq paths)
                            (par-fetch session fetch! paths tenant rollup
                                       period from to))]
-          (let [min-point  (:time (first data))
+          (let [min-point  from
                 max-point  (-> to (quot rollup) (* rollup))
                 nil-points (->> (range min-point (inc max-point) rollup)
                                 (pmap (fn [time] {time [{:time time}]}))
