@@ -114,4 +114,5 @@
 (defn stop
   "Stop a tcp carbon listener"
   [carbon-handle]
-  (tc/stop-tcp-server carbon-handle))
+  (when carbon-handle
+    (tc/stop-tcp-server carbon-handle)))
