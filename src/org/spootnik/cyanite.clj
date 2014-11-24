@@ -25,8 +25,9 @@
       (System/exit 1))))
 
 (defn install-flusher
- [{:keys [store-cache]}]
- (reset! (beckon/signal-atom "TERM") [#(cache/flush! store-cache)]))
+ [{:keys [store-cache]} carbon-handle]
+ (reset! (beckon/signal-atom "TERM") [#(carbon/stop carbon-handle)
+                                      #(cache/flush! store-cache)]))
 
 (defn -main
   "Our main function, parses args and launches appropriate services"
@@ -44,9 +45,7 @@
                 (config/load-blacklist-config (:path blacklist))))]
         (reset! (beckon/signal-atom "HUP") #{load-configs})
         (load-configs))
-      (install-flusher config)
-      (when (:enabled carbon)
-        (carbon/start config))
+      (install-flusher config (when (:enabled carbon) (carbon/start config)))
       (when (:enabled http)
         (http/start config))))
   nil)
