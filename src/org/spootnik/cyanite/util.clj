@@ -138,6 +138,10 @@
   []
   (quot (System/currentTimeMillis) 1000))
 
+(defn align-time
+  [time rollup]
+  (-> time (quot rollup) (* rollup)))
+
 (defn nested-select-keys
   "Nested select-keys."
   [map keyseq]
