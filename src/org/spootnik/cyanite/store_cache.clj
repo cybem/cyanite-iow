@@ -45,7 +45,7 @@
                              @pkeys)) ttl)))
       (swap! mkeys #(dissoc % mkey))
       (catch Exception e
-        (info e "Cache flushing exception")))))
+        (error e "Cache flushing exception")))))
 
 (defn- run-delayer!
   [rollup fn-flusher]
@@ -75,7 +75,8 @@
                          (with-meta pkeys {:fn-flusher fn-flusher
                                            :delayer delayer
                                            :flusher flusher
-                                           :data (atom {})})))
+                                           :data (atom {})
+                                           :rollup rollup})))
                 (assoc % mkey pkeys))))
     (get @mkeys mkey)))
 
@@ -89,15 +90,19 @@
 (defn- run-flusher!
   [mkeys]
   (info "Flushing the store cache...")
-  (doseq [[mkey pkeys] @mkeys]
-    (let [m (meta @pkeys)
-          delayer (get m :delayer nil)
-          flusher (get m :flusher nil)]
-      (when delayer
-        (future-cancel delayer)
-        (when flusher
-          (deref flusher)))))
-  (info "The store cache has been flushed"))
+  (try
+    (let [sorted-mkeys (sort-by #(:rollup (meta (get mkeys (first %)))) @mkeys)]
+      (doseq [[mkey pkeys] sorted-mkeys]
+        (let [m (meta @pkeys)
+              delayer (get m :delayer nil)
+              flusher (get m :flusher nil)]
+          (when delayer
+            (future-cancel delayer)
+            (when flusher
+              (deref flusher))))))
+    (info "The store cache has been flushed")
+    (catch Exception e
+      (error e "Cache flushing exception"))))
 
 (defn in-memory-cache
   [config]
