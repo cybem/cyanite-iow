@@ -8,7 +8,8 @@
             [org.spootnik.cyanite.util   :refer [partition-or-time
                                                  go-forever go-catch
                                                  counter-inc!
-                                                 agg-fn-by-path]]
+                                                 agg-fn-by-path
+                                                 now]]
             [clojure.tools.logging       :refer [error info debug]]
             [lamina.core                 :refer [channel receive-all]]
             [clojure.core.async :as async :refer [<! >! go chan]]
