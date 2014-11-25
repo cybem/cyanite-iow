@@ -110,3 +110,9 @@
           (counters-reset!))))
     (tc/start-tcp-server
      (merge carbon {:response-channel chan}))))
+
+(defn stop
+  "Stop a tcp carbon listener"
+  [carbon-handle]
+  (when carbon-handle
+    (tc/stop-tcp-server carbon-handle)))

@@ -65,3 +65,7 @@
         server (boot-strap-server putter readtimeout)
         f (-> server (.bind port))]
     (-> f .channel .closeFuture)))
+
+(defn stop-tcp-server
+  [close-future]
+  (.close (.channel close-future)))
