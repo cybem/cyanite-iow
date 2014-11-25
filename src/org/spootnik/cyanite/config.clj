@@ -3,7 +3,8 @@
   (:import (java.net InetAddress))
   (:require [org.spootnik.cyanite.util :refer [set-aggregator-patterns!
                                                set-blacklist-patterns!
-                                               nested-select-keys]]
+                                               nested-select-keys
+                                               align-time]]
             [org.spootnik.cyanite.store_mware]
             [clj-yaml.core :refer [parse-string]]
             [clojure.string :refer [split]]
@@ -104,7 +105,7 @@
    the rollup of a point"
   [rollups]
   (map (fn [{:keys [rollup] :as rollup-def}]
-         (assoc rollup-def :rollup-to #(-> % (quot rollup) (* rollup))))
+         (assoc rollup-def :rollup-to #(align-time % rollup)))
        rollups))
 
 (defn find-ns-var

@@ -9,6 +9,7 @@
                                                  go-forever go-catch
                                                  counter-inc!
                                                  agg-fn-by-path
+                                                 align-time
                                                  now]]
             [clojure.tools.logging       :refer [error info debug]]
             [lamina.core                 :refer [channel receive-all]]
@@ -189,8 +190,8 @@
         (if-let [data (and (seq paths)
                            (par-fetch session fetch! paths tenant rollup
                                       period from to))]
-          (let [min-point  from
-                max-point  (-> (apply min [to (now)]) (quot rollup) (* rollup))
+          (let [min-point  (align-time from rollup)
+                max-point  (align-time (apply min [to (now)]) rollup)
                 nil-points (->> (range min-point (inc max-point) rollup)
                                 (pmap (fn [time] {time [{:time time}]}))
                                 (reduce merge {}))
