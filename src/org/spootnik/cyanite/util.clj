@@ -185,10 +185,10 @@
   [_ data]
   (aggregate-with :avg data))
 
-(def agg-path-re (format "^(%s)(\\.|\\-).*" (str/join "|" agg-methods)))
-
 (def agg-fn-map (zipmap agg-methods
                         (map #(partial aggregate-with (keyword %)) agg-methods)))
+
+(def agg-path-re (format "^(%s)(\\.|\\-).*" (str/join "|" agg-methods)))
 
 (defn agg-fn-by-path
   [path]
