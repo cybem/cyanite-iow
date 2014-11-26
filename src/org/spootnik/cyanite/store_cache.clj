@@ -43,9 +43,10 @@
                     (fn-agg (fn-get
                              (fn-key tenant period rollup time path)
                              @pkeys)) ttl)))
-      (swap! mkeys #(dissoc % mkey))
       (catch Exception e
-        (error e "Cache flushing exception")))))
+        (error e "Cache flushing exception"))
+      (finally
+        (swap! mkeys #(dissoc % mkey))))))
 
 (defn- run-delayer!
   [rollup fn-flusher]
