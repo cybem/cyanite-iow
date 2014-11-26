@@ -13,7 +13,6 @@
   (-show-meta [this]))
 
 (def ^:const metric-wait-time 60)
-(def ^:const cache-add-ttl 180)
 
 (defn- construct-mkey
   [tenant period rollup time]
