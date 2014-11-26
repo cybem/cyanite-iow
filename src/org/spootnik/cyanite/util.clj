@@ -2,7 +2,8 @@
   (:require [clojure.core.async :as async :refer [alt! chan >! close! go
                                                   timeout >!! go-loop
                                                   dropping-buffer]]
-            [clojure.tools.logging :refer [debug info warn error]]))
+            [clojure.tools.logging :refer [debug info warn error]]
+            [clojure.string :as str]))
 
 (defmacro go-forever
   [body]
@@ -149,6 +150,7 @@
 ;;
 ;; The next section contains a series of path matching functions
 
+(def agg-methods ["sum" "avg" "mean" "min" "max" "raw"])
 
 (defmulti aggregate-with
   "This transforms a raw list of points according to the provided aggregation
@@ -183,8 +185,13 @@
   [_ data]
   (aggregate-with :avg data))
 
+(def agg-path-re (format "^(%s)(\\.|\\-).*" (str/join "|" agg-methods)))
+
+(def agg-fn-map (zipmap agg-methods
+                        (map #(partial aggregate-with (keyword %)) agg-methods)))
+
 (defn agg-fn-by-path
   [path]
-  (if-let [[_ method] (re-find #"^(sum|avg|mean|min|max|raw)(\.|\-).*" path)]
-    (partial aggregate-with (keyword method))
-    (partial aggregate-with :avg)))
+  (if-let [[_ method] (re-find agg-path-re path)]
+    (get agg-fn-map method)
+    (get agg-fn-map "avg")))
