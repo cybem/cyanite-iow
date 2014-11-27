@@ -62,9 +62,9 @@
   (alia/prepare
    session
    (str
-    "SELECT path,data,time FROM metric WHERE "
+    "SELECT data,time FROM metric WHERE "
     "path = ? AND tenant = ? AND rollup = ? AND period = ? "
-    "AND time >= ? AND time <= ? ORDER BY time ASC;")))
+    "AND time >= ? AND time <= ?;")))
 
 
 (defn useq
@@ -76,7 +76,7 @@
 ;; if no method given parse metric name and select aggregation function
 ;;
 (defn detect-aggregate
-  [{:keys [path data] :as metric}]
+  [path {:keys [data] :as metric}]
   (-> metric
       (dissoc :data)
       (assoc :metric ((agg-fn-by-path path) data))))
@@ -91,16 +91,6 @@
       (inc)
       (* (count paths))
       (int)))
-
-(defn fill-in
-  "Fill in fetched data with nil metrics for a given time range"
-  [nils [path data]]
-  (hash-map path
-            (->> (group-by :time data)
-                 (merge nils)
-                 (map (comp first val))
-                 (sort-by :time)
-                 (map :metric))))
 
 (defn- batch
   "Creates a batch of prepared statements"
@@ -125,18 +115,31 @@
         (doall (map #(future
                        (debug "fetching path from store: " % tenant
                               rollup period from to)
-                       (->> (alia/execute
-                             session fetch!
-                             {:values [% tenant (int rollup)
-                                       (int period)
-                                       from to]
-                              :fetch-size Integer/MAX_VALUE})
-                            (map detect-aggregate)
-                            (doall)
-                            (seq)))
+                       (let [data (->> (alia/execute
+                                        session fetch!
+                                        {:values [% tenant (int rollup)
+                                                  (int period)
+                                                  from to]
+                                         :fetch-size Integer/MAX_VALUE})
+                                       (map (partial detect-aggregate %))
+                                       (seq))]
+                         {:path % :data data}))
                     paths))]
-    (seq (into [] (r/remove nil? (r/reduce into []
-                                           (map deref-limiter futures)))))))
+    (map deref-limiter futures)))
+
+(defn do-series
+  [points path-data]
+  (let [path (:path path-data)
+        data (:data path-data)]
+    (if data
+      (let [time-map (reduce (fn [acc el]
+                               (let [time (:time el)
+                                     metric (:metric el)]
+                                 (assoc acc time metric)))
+                             {} data)
+            time-series (map #(get time-map % nil) points)]
+        {path time-series})
+      {})))
 
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
@@ -192,16 +195,13 @@
                                       period from to))]
           (let [min-point  (align-time from rollup)
                 max-point  (align-time (apply min [to (now)]) rollup)
-                nil-points (->> (range min-point (inc max-point) rollup)
-                                (pmap (fn [time] {time [{:time time}]}))
-                                (reduce merge {}))
-                by-path    (->> (group-by :path data)
-                                (pmap (partial fill-in nil-points))
-                                (reduce merge {}))]
+                points (range min-point (inc max-point) rollup)
+                paths-series (pmap (partial do-series points) data)
+                series (reduce merge paths-series)]
             {:from min-point
              :to   max-point
              :step rollup
-             :series by-path})
+             :series series})
           {:from from
            :to to
            :step rollup
