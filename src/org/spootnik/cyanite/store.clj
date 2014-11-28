@@ -108,18 +108,6 @@
       (throw (ex-info "Too long!" {})))
     result))
 
-(defn do-series
-  [points path data]
-  (if data
-    (let [time-map (reduce (fn [acc el]
-                             (let [time (:time el)
-                                   metric (:metric el)]
-                               (assoc acc time metric)))
-                           {} data)
-          time-series (map #(get time-map % nil) points)]
-      time-series)
-    {}))
-
 (defn time-to-ndx
   [^long min-point ^long rollup ^long time]
   (/ (- time min-point) rollup))
