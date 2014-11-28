@@ -154,7 +154,7 @@
 ;;
 ;; The next section contains a series of path matching functions
 
-(def agg-methods ["sum" "avg" "mean" "min" "max" "raw"])
+(def ^:const agg-methods ["sum" "avg" "mean" "min" "max" "raw"])
 
 (defmulti aggregate-with
   "This transforms a raw list of points according to the provided aggregation
@@ -190,10 +190,12 @@
   (aggregate-with :avg data))
 
 (def agg-fn-map (zipmap agg-methods
-                        (map #(partial aggregate-with (keyword %)) agg-methods)))
+                        (map #(partial aggregate-with (keyword %))
+                             agg-methods)))
 
 (def agg-path-re (re-pattern
-                  (format "^(%s)(\\.|\\-).*" (str/join "|" agg-methods))))
+                  (format "^(%s)(\\.|\\-).*"
+                          (str/join "|" agg-methods))))
 
 (defn agg-fn-by-path
   [path]
