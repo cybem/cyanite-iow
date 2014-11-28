@@ -120,24 +120,38 @@
       time-series)
     {}))
 
+(defn time-to-ndx
+  [^long min-point ^long rollup ^long time]
+  (/ (- time min-point) rollup))
+
 (defn par-fetch
   "Fetch data in parallel fashion."
-  [session fetch! paths tenant rollup period from to points]
-  (let [futures
+  [session fetch! paths tenant rollup period from to]
+  (let [to-ndx (partial time-to-ndx from rollup)
+        asize (inc (to-ndx to))
+        series (atom {})
+        futures
         (doall (map #(future
-                       (debug "fetching path from store: " % tenant
-                              rollup period from to)
-                       (let [data (->> (alia/execute
-                                        session fetch!
-                                        {:values [% tenant (int rollup)
-                                                  (int period)
-                                                  from to]
-                                         :fetch-size Integer/MAX_VALUE})
-                                       (map (partial detect-aggregate %))
-                                       (do-series points %))]
-                         {% data}))
+                       (try
+                         (debug "fetching path from store: " % tenant
+                                rollup period from to)
+                         (let [points (object-array asize)
+                               rows (->> (alia/execute
+                                          session fetch!
+                                          {:values [% tenant (int rollup)
+                                                    (int period)
+                                                    from to]
+                                           :fetch-size Integer/MAX_VALUE})
+                                         (map (partial detect-aggregate %)))]
+                           (when rows
+                             (doseq [row rows]
+                               (aset points (to-ndx (:time row)) (:metric row)))
+                             (swap! series (fn [m] (assoc m % (vec points))))))
+                         (catch  Exception e
+                           (info e "Fetching exception"))))
                     paths))]
-    (map deref-limiter futures)))
+    (doall (map deref-limiter futures))
+    @series))
 
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
@@ -189,16 +203,14 @@
       (fetch [this agg paths tenant rollup period from to]
         (debug "fetching paths from store: " paths tenant rollup period from to)
         (let [min-point  (align-time from rollup)
-              max-point  (align-time (apply min [to (now)]) rollup)
-              points (range min-point (inc max-point) rollup)]
+              max-point  (align-time (apply min [to (now)]) rollup)]
           (if-let [data (and (seq paths)
                              (par-fetch session fetch! paths tenant rollup
-                                        period from to points))]
-            (let [series (reduce merge data)]
-              {:from min-point
-               :to   max-point
-               :step rollup
-               :series series})
+                                        period min-point max-point))]
+            {:from min-point
+             :to   max-point
+             :step rollup
+             :series data}
             {:from from
              :to to
              :step rollup
