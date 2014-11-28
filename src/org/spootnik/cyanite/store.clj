@@ -72,15 +72,6 @@
   [keyspace]
   (format "USE %s;" (name keyspace)))
 
-;;
-;; if no method given parse metric name and select aggregation function
-;;
-(defn detect-aggregate
-  [path {:keys [data] :as metric}]
-  (-> metric
-      (dissoc :data)
-      (assoc :metric ((agg-fn-by-path path) data))))
-
 (defn max-points
   "Returns the maximum number of points to expect for
    a given resolution, time range and number of paths"
@@ -124,16 +115,21 @@
                          (debug "fetching path from store: " % tenant
                                 rollup period from to)
                          (let [points (object-array asize)
+                               agg-fn (agg-fn-by-path %)
                                rows (->> (alia/execute
                                           session fetch!
                                           {:values [% tenant (int rollup)
                                                     (int period)
                                                     from to]
-                                           :fetch-size Integer/MAX_VALUE})
-                                         (map (partial detect-aggregate %)))]
+                                           :fetch-size Integer/MAX_VALUE}))]
                            (when rows
                              (doseq [row rows]
-                               (aset points (to-ndx (:time row)) (:metric row)))
+                               (let [time (:time row)
+                                     metric-raw (:data row)
+                                     metric (if (> (count metric-raw) 1)
+                                              (agg-fn metric-raw)
+                                              (first metric-raw))]
+                                 (aset points (to-ndx time) metric)))
                              (swap! series (fn [m] (assoc m % (vec points))))))
                          (catch  Exception e
                            (info e "Fetching exception"))))
