@@ -108,9 +108,21 @@
       (throw (ex-info "Too long!" {})))
     result))
 
+(defn do-series
+  [points path data]
+  (if data
+    (let [time-map (reduce (fn [acc el]
+                             (let [time (:time el)
+                                   metric (:metric el)]
+                               (assoc acc time metric)))
+                           {} data)
+          time-series (map #(get time-map % nil) points)]
+      time-series)
+    {}))
+
 (defn par-fetch
   "Fetch data in parallel fashion."
-  [session fetch! paths tenant rollup period from to]
+  [session fetch! paths tenant rollup period from to points]
   (let [futures
         (doall (map #(future
                        (debug "fetching path from store: " % tenant
@@ -122,24 +134,10 @@
                                                   from to]
                                          :fetch-size Integer/MAX_VALUE})
                                        (map (partial detect-aggregate %))
-                                       (seq))]
-                         {:path % :data data}))
+                                       (do-series points %))]
+                         {% data}))
                     paths))]
     (map deref-limiter futures)))
-
-(defn do-series
-  [points path-data]
-  (let [path (:path path-data)
-        data (:data path-data)]
-    (if data
-      (let [time-map (reduce (fn [acc el]
-                               (let [time (:time el)
-                                     metric (:metric el)]
-                                 (assoc acc time metric)))
-                             {} data)
-            time-series (map #(get time-map % nil) points)]
-        {path time-series})
-      {})))
 
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
@@ -190,19 +188,18 @@
          {:values [ttl data tenant rollup period path time]}))
       (fetch [this agg paths tenant rollup period from to]
         (debug "fetching paths from store: " paths tenant rollup period from to)
-        (if-let [data (and (seq paths)
-                           (par-fetch session fetch! paths tenant rollup
-                                      period from to))]
-          (let [min-point  (align-time from rollup)
-                max-point  (align-time (apply min [to (now)]) rollup)
-                points (range min-point (inc max-point) rollup)
-                paths-series (pmap (partial do-series points) data)
-                series (reduce merge paths-series)]
-            {:from min-point
-             :to   max-point
+        (let [min-point  (align-time from rollup)
+              max-point  (align-time (apply min [to (now)]) rollup)
+              points (range min-point (inc max-point) rollup)]
+          (if-let [data (and (seq paths)
+                             (par-fetch session fetch! paths tenant rollup
+                                        period from to points))]
+            (let [series (reduce merge data)]
+              {:from min-point
+               :to   max-point
+               :step rollup
+               :series series})
+            {:from from
+             :to to
              :step rollup
-             :series series})
-          {:from from
-           :to to
-           :step rollup
-           :series {}})))))
+             :series {}}))))))
