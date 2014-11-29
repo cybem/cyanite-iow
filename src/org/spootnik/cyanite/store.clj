@@ -48,7 +48,11 @@
     "UPDATE metric USING TTL ? SET data = data + ? "
     "WHERE tenant = ? AND rollup = ? AND period = ? AND path = ? AND time = ?;")))
 
-(defn fetchq
+(def ^:const fetchq (str "SELECT data,time FROM metric WHERE "
+                         "path = ? AND tenant = ? AND rollup = ? AND period = ? "
+                         "AND time >= ? AND time <= ?;"))
+
+(defn fetchqp
   "Yields a cassandra prepared statement of 7 arguments:
 
 * `paths`: list of paths
@@ -61,10 +65,7 @@
   [session]
   (alia/prepare
    session
-   (str
-    "SELECT data,time FROM metric WHERE "
-    "path = ? AND tenant = ? AND rollup = ? AND period = ? "
-    "AND time >= ? AND time <= ?;")))
+   fetchq))
 
 
 (defn useq
@@ -121,7 +122,8 @@
                          (let [points (object-array asize)
                                agg-fn (agg-fn-by-path %)
                                rows (->> (alia/execute
-                                          session fetch!
+                                          session
+                                          fetch!
                                           {:values [% tenant (int rollup)
                                                     (int period)
                                                     from to]
@@ -162,7 +164,7 @@
                                                                                 :remote 8192}}})
                     (alia/connect keyspace))
         insert! (insertq session)
-        fetch!  (fetchq session)]
+        fetch!  (fetchqp session)]
     (reify
       Metricstore
       (channel-for [this]
@@ -199,7 +201,7 @@
         (let [min-point  (align-time from rollup)
               max-point  (align-time (apply min [to (now)]) rollup)]
           (if-let [series (and (seq paths)
-                               (par-fetch session fetch! paths tenant rollup
+                               (par-fetch session fetchq paths tenant rollup
                                           period min-point max-point))]
             (format "{\"from\":%s,\"to\":%s,\"step\":%s,\"series\":%s}"
                     min-point max-point rollup series)
