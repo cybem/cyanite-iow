@@ -14,7 +14,7 @@
             [clojure.tools.logging       :refer [error info debug]]
             [lamina.core                 :refer [channel receive-all]]
             [clojure.core.async :as async :refer [<! >! go chan]]
-            [clojure.core.reducers :as r])
+            [cheshire.core :as json])
   (:import [com.datastax.driver.core
             BatchStatement
             PreparedStatement]))
@@ -99,15 +99,17 @@
       (throw (ex-info "Too long!" {})))
     result))
 
-(defn time-to-ndx
-  [^long min-point ^long rollup ^long time]
-  (/ (- time min-point) rollup))
+(defmacro time-to-ndx
+  [from rollup time]
+  `(/ (- ~time ~from) ~rollup))
 
 (defn par-fetch
   "Fetch data in parallel fashion."
   [session fetch! paths tenant rollup period from to]
-  (let [to-ndx (partial time-to-ndx from rollup)
-        asize (inc (to-ndx to))
+  (let [rollup (long rollup)
+        from (long from)
+        to (long to)
+        asize (inc (time-to-ndx from rollup to))
         series (atom {})
         futures
         (doall (map #(future
@@ -124,12 +126,13 @@
                                            :fetch-size Integer/MAX_VALUE}))]
                            (when rows
                              (doseq [row rows]
-                               (let [time (:time row)
+                               (let [time (long (:time row))
                                      metric-raw (:data row)
                                      metric (if (> (count metric-raw) 1)
                                               (agg-fn metric-raw)
                                               (first metric-raw))]
-                                 (aset points (to-ndx time) metric)))
+                                 (aset points (time-to-ndx from rollup time)
+                                       metric)))
                              (swap! series (fn [m] (assoc m % (vec points))))))
                          (catch  Exception e
                            (info e "Fetching exception"))))
