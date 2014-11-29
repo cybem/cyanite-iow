@@ -147,7 +147,7 @@
                            (info e "Fetching exception"))))
                     paths))]
     (doall (map deref-limiter futures))
-    (str/join ["{" (str/join "," @series) "}"])))
+    (str "{" (str/join "," @series) "}")))
 
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
