@@ -63,14 +63,14 @@
         (counter-inc! (keyword (str "tenants." tenant ".metrics_read")) 1)
         {:status 200
          :headers {"Content-Type" "application/json"}
-         :body (json/generate-string
-                (let [to (if to (Long/parseLong (str to)) (now))
-                      from (Long/parseLong (str from))]
-                  (if-let [{:keys [rollup period]}
-                           (rollup/find-rollup rollup-finder from to)]
-                    (let [paths (lookup-paths index (or tenant "NONE") path)]
-                      (store/fetch store (or agg "mean") paths (or tenant "NONE")
-                                   rollup period from to))
+         :body (let [to (if to (Long/parseLong (str to)) (now))
+                     from (Long/parseLong (str from))]
+                 (if-let [{:keys [rollup period]}
+                          (rollup/find-rollup rollup-finder from to)]
+                   (let [paths (lookup-paths index (or tenant "NONE") path)]
+                     (store/fetch store (or agg "mean") paths (or tenant "NONE")
+                                  rollup period from to))
+                   (json/generate-string
                     {:step nil :from nil :to nil :series {}})))})
       (catch Exception e
         (let [{:keys [status body suppress?]} (ex-data e)]

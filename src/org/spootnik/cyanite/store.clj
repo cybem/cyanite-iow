@@ -103,19 +103,21 @@
   [from rollup time]
   `(/ (- ~time ~from) ~rollup))
 
+(defn points-to-json
+  [points]
+  (json/generate-string (vec points)))
+
 (defn par-fetch
   "Fetch data in parallel fashion."
   [session fetch! paths tenant rollup period from to]
-  (let [rollup (long rollup)
+  (let [rollup (int rollup)
         from (long from)
         to (long to)
         asize (inc (time-to-ndx from rollup to))
-        series (atom {})
+        series (atom ())
         futures
         (doall (map #(future
                        (try
-                         (debug "fetching path from store: " % tenant
-                                rollup period from to)
                          (let [points (object-array asize)
                                agg-fn (agg-fn-by-path %)
                                rows (->> (alia/execute
@@ -133,12 +135,17 @@
                                               (first metric-raw))]
                                  (aset points (time-to-ndx from rollup time)
                                        metric)))
-                             (swap! series (fn [m] (assoc m % (vec points))))))
+                             (let [jpoints (str/join ["\"" % "\":"
+                                                      (points-to-json points)])]
+                               (swap! series (fn [s]
+                                               (if (empty? s)
+                                                 (list jpoints)
+                                                 (conj s jpoints)))))))
                          (catch  Exception e
                            (info e "Fetching exception"))))
                     paths))]
     (doall (map deref-limiter futures))
-    @series))
+    (str/join ["{" (str/join "," @series) "}"])))
 
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
@@ -191,14 +198,12 @@
         (debug "fetching paths from store: " paths tenant rollup period from to)
         (let [min-point  (align-time from rollup)
               max-point  (align-time (apply min [to (now)]) rollup)]
-          (if-let [data (and (seq paths)
-                             (par-fetch session fetch! paths tenant rollup
-                                        period min-point max-point))]
-            {:from min-point
-             :to   max-point
-             :step rollup
-             :series data}
-            {:from from
-             :to to
-             :step rollup
-             :series {}}))))))
+          (if-let [series (and (seq paths)
+                               (par-fetch session fetch! paths tenant rollup
+                                          period min-point max-point))]
+            (format "{\"from\":%s,\"to\":%s,\"step\":%s,\"series\":%s}"
+                    min-point max-point rollup series)
+            (json/generate-string {:from from
+                                   :to to
+                                   :step rollup
+                                   :series {}})))))))
