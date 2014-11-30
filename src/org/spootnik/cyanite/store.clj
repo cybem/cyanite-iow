@@ -130,7 +130,6 @@
                                                     from to]
                                            :fetch-size Integer/MAX_VALUE
                                            }))]
-                           (doall rows)
                            (when rows
                              (doseq [row rows]
                                (let [time (long (:time row))
