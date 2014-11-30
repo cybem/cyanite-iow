@@ -5,6 +5,7 @@
    swap implementations"
   (:require [clojure.string              :as str]
             [qbits.alia                  :as alia]
+            [qbits.alia.policy.load-balancing :as alia_lbp]
             [org.spootnik.cyanite.util   :refer [partition-or-time
                                                  go-forever go-catch
                                                  counter-inc!
@@ -127,7 +128,9 @@
                                           {:values [% tenant (int rollup)
                                                     (int period)
                                                     from to]
-                                           :fetch-size Integer/MAX_VALUE}))]
+                                           :fetch-size Integer/MAX_VALUE
+                                           }))]
+                           (doall rows)
                            (when rows
                              (doseq [row rows]
                                (let [time (long (:time row))
@@ -159,9 +162,22 @@
            batch_size 100}}]
   (info "creating cassandra metric store")
   (let [cluster (if (sequential? cluster) cluster [cluster])
-        session (-> (alia/cluster {:contact-points cluster
-                                   :pooling-options {:max-connections-per-host {:local 8192
-                                                                                :remote 8192}}})
+        session (-> (alia/cluster
+                     {:contact-points cluster
+                      :compression :lz4
+                      :pooling-options {:max-connections-per-host
+                                        {:local 8192
+                                         :remote 8192}
+                                        :max-simultaneous-requests-per-connection
+                                        {:local 128
+                                         :remote 128}
+                                        :load-balancing-policy
+                                        (alia_lbp/token-aware-policy
+                                         (alia_lbp/dc-aware-round-robin-policy ""))}
+                      :socket-options {:read-timeout-millis 1000000
+                                       :receive-buffer-size 8388608
+                                       :send-buffer-size 1048576
+                                       :tcp-no-delay? false}})
                     (alia/connect keyspace))
         insert! (insertq session)
         fetch!  (fetchqp session)]
