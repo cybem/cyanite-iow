@@ -116,7 +116,6 @@
         from (long from)
         to (long to)
         asize (inc (time-to-ndx from rollup to))
-        series (atom ())
         futures
         (doall (map #(future
                        (try
@@ -139,17 +138,11 @@
                                               (first metric-raw))]
                                  (aset points (time-to-ndx from rollup time)
                                        metric)))
-                             (let [jpoints (str/join ["\"" % "\":"
-                                                      (points-to-json points)])]
-                               (swap! series (fn [s]
-                                               (if (empty? s)
-                                                 (list jpoints)
-                                                 (conj s jpoints)))))))
+                             (str/join ["\"" % "\":" (points-to-json points)])))
                          (catch  Exception e
                            (info e "Fetching exception"))))
                     paths))]
-    (doall (map deref-limiter futures))
-    (str "{" (str/join "," @series) "}")))
+    (str "{" (str/join "," (remove nil? (map deref-limiter futures))) "}")))
 
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
@@ -163,7 +156,7 @@
   (let [cluster (if (sequential? cluster) cluster [cluster])
         session (-> (alia/cluster
                      {:contact-points cluster
-                      :compression :lz4
+                      ;;:compression :lz4
                       :pooling-options {:max-connections-per-host
                                         {:local 8192
                                          :remote 8192}
@@ -172,7 +165,8 @@
                                          :remote 128}
                                         :load-balancing-policy
                                         (alia_lbp/token-aware-policy
-                                         (alia_lbp/dc-aware-round-robin-policy ""))}
+                                         (alia_lbp/dc-aware-round-robin-policy
+                                          "us-east"))}
                       :socket-options {:read-timeout-millis 1000000
                                        :receive-buffer-size 8388608
                                        :send-buffer-size 1048576
