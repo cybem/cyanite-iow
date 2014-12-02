@@ -47,10 +47,16 @@
   [index tenant path]
   (path/lookup index tenant path))
 
+(defn has-wildcard?
+  [path]
+  (if (re-find #"(\*|\[|\{)" path) true false))
+
 (defn lookup-paths
   [index tenant paths]
   (let [paths (if (sequential? paths) paths [paths])]
-    (flatten (pmap (partial lookup-path index tenant) paths))))
+    (if (and (= (count paths) 1) (has-wildcard? (first paths)))
+      (flatten (pmap (partial lookup-path index tenant) paths))
+      paths)))
 
 (defn metrics-handler [response-channel
                        {{:keys [index store rollup-finder]} :local-params
