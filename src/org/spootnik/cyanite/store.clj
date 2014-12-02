@@ -19,7 +19,8 @@
             [qbits.knit :as knit])
   (:import [com.datastax.driver.core
             BatchStatement
-            PreparedStatement]
+            PreparedStatement
+            Session]
            [java.util.concurrent ExecutorService]))
 
 (set! *warn-on-reflection* true)
@@ -111,39 +112,42 @@
   [points]
   (json/generate-string (vec points)))
 
-(defn par-fetch
-  "Fetch data in parallel fashion."
-  [session fetch! executor paths tenant rollup period from to]
+(defn process-path-fn
+  [^Session session cql tenant rollup period from to asize]
   (let [rollup (int rollup)
         from (long from)
-        to (long to)
-        asize (inc (time-to-ndx from rollup to))
-        futures
-        (doall (map #(knit/future executor
-                       (try
-                         (let [points (object-array asize)
-                               agg-fn (agg-fn-by-path %)
-                               rows (->> (alia/execute
-                                          session
-                                          fetch!
-                                          {:values [% tenant (int rollup)
-                                                    (int period)
-                                                    from to]
-                                           :fetch-size Integer/MAX_VALUE
-                                           }))]
-                           (when rows
-                             (doseq [row rows]
-                               (let [time (long (:time row))
-                                     metric-raw (:data row)
-                                     metric (if (> (count metric-raw) 1)
-                                              (agg-fn metric-raw)
-                                              (first metric-raw))]
-                                 (aset points (time-to-ndx from rollup time)
-                                       metric)))
-                             (str/join ["\"" % "\":" (points-to-json points)])))
-                         (catch  Exception e
-                           (info e "Fetching exception"))))
-                    paths))]
+        to (long to)]
+    (fn [path]
+      (try
+        (let [points (object-array asize)
+              agg-fn (agg-fn-by-path path)
+              rows (.execute session (format cql path))
+              first-row (.one rows)]
+          (when first-row
+            (loop [row first-row]
+              (when row
+                (let [time (long (.getLong row "time"))
+                      metric-raw (into [] (.getList row "data" java.lang.Double))
+                      metric (if (> (count metric-raw) 1)
+                               (agg-fn metric-raw)
+                               (first metric-raw))]
+                  (aset points (time-to-ndx from rollup time) metric)
+                  (recur (.one rows)))))
+            (str/join ["\"" path "\":" (points-to-json points)])))
+        (catch  Exception e
+          (info e "Fetching exception"))))))
+
+(defn par-fetch
+  "Fetch data in parallel fashion."
+  [session executor paths tenant rollup period from to]
+  (let [asize (inc (time-to-ndx from rollup to))
+        cql (format (str "SELECT data, time FROM metric WHERE "
+                         "path = '%%s' AND tenant = '%s' AND rollup = %s "
+                         "AND period = %s AND time >= %s AND time <= %s;")
+                    tenant rollup period from to)
+        process-path (process-path-fn session cql tenant rollup period from
+                                      to asize)
+        futures (doall (map #(knit/future executor (process-path %)) paths))]
     (str "{" (str/join "," (remove nil? (map deref-limiter futures))) "}")))
 
 (defn cassandra-metric-store
@@ -213,8 +217,8 @@
         (let [min-point  (align-time from rollup)
               max-point  (align-time (apply min [to (now)]) rollup)]
           (if-let [series (and (seq paths)
-                               (par-fetch session fetchq executor paths tenant
-                                          rollup period min-point max-point))]
+                               (par-fetch session executor paths tenant rollup
+                                          period min-point max-point))]
             (format "{\"from\":%s,\"to\":%s,\"step\":%s,\"series\":%s}"
                     min-point max-point rollup series)
             (json/generate-string {:from from
