@@ -52,42 +52,6 @@
     "UPDATE metric USING TTL ? SET data = data + ? "
     "WHERE tenant = ? AND rollup = ? AND period = ? AND path = ? AND time = ?;")))
 
-(def ^:const fetchq (str "SELECT data,time FROM metric WHERE "
-                         "path = ? AND tenant = ? AND rollup = ? AND period = ? "
-                         "AND time >= ? AND time <= ?;"))
-
-(defn fetchqp
-  "Yields a cassandra prepared statement of 7 arguments:
-
-* `paths`: list of paths
-* `tenant`: tenant identifier
-* `rollup`: interval between points at this resolution
-* `period`: rollup multiplier which determines the time to keep points for
-* `min`: return points starting from this timestamp
-* `max`: return points up to this timestamp
-* `limit`: maximum number of points to return"
-  [session]
-  (alia/prepare
-   session
-   fetchq))
-
-
-(defn useq
-  "Yields a cassandra use statement for a keyspace"
-  [keyspace]
-  (format "USE %s;" (name keyspace)))
-
-(defn max-points
-  "Returns the maximum number of points to expect for
-   a given resolution, time range and number of paths"
-  [paths rollup from to]
-  (-> (- to from)
-      (/ rollup)
-      (long)
-      (inc)
-      (* (count paths))
-      (int)))
-
 (defn- batch
   "Creates a batch of prepared statements"
   [^PreparedStatement s values]
@@ -179,7 +143,6 @@
                                        :tcp-no-delay? false}})
                     (alia/connect keyspace))
         insert! (insertq session)
-        fetch!  (fetchqp session)
         executor (knit/executor :cached)]
     (reify
       Metricstore
