@@ -15,10 +15,12 @@
             [clojure.tools.logging       :refer [error info debug]]
             [lamina.core                 :refer [channel receive-all]]
             [clojure.core.async :as async :refer [<! >! go chan]]
-            [cheshire.core :as json])
+            [cheshire.core :as json]
+            [qbits.knit :as knit])
   (:import [com.datastax.driver.core
             BatchStatement
-            PreparedStatement]))
+            PreparedStatement]
+           [java.util.concurrent ExecutorService]))
 
 (set! *warn-on-reflection* true)
 
@@ -111,13 +113,13 @@
 
 (defn par-fetch
   "Fetch data in parallel fashion."
-  [session fetch! paths tenant rollup period from to]
+  [session fetch! executor paths tenant rollup period from to]
   (let [rollup (int rollup)
         from (long from)
         to (long to)
         asize (inc (time-to-ndx from rollup to))
         futures
-        (doall (map #(future
+        (doall (map #(knit/future executor
                        (try
                          (let [points (object-array asize)
                                agg-fn (agg-fn-by-path %)
@@ -156,7 +158,7 @@
   (let [cluster (if (sequential? cluster) cluster [cluster])
         session (-> (alia/cluster
                      {:contact-points cluster
-                      ;;:compression :lz4
+                      :compression :lz4
                       :pooling-options {:max-connections-per-host
                                         {:local 8192
                                          :remote 8192}
@@ -173,7 +175,8 @@
                                        :tcp-no-delay? false}})
                     (alia/connect keyspace))
         insert! (insertq session)
-        fetch!  (fetchqp session)]
+        fetch!  (fetchqp session)
+        executor (knit/executor :cached)]
     (reify
       Metricstore
       (channel-for [this]
@@ -210,8 +213,8 @@
         (let [min-point  (align-time from rollup)
               max-point  (align-time (apply min [to (now)]) rollup)]
           (if-let [series (and (seq paths)
-                               (par-fetch session fetchq paths tenant rollup
-                                          period min-point max-point))]
+                               (par-fetch session fetchq executor paths tenant
+                                          rollup period min-point max-point))]
             (format "{\"from\":%s,\"to\":%s,\"step\":%s,\"series\":%s}"
                     min-point max-point rollup series)
             (json/generate-string {:from from
