@@ -110,7 +110,7 @@
   (let [mkeys (atom {})
         get-data (fn [pkeys] (get (meta pkeys) :data))
         cache-get (fn [key pkeys] (get @(get-data pkeys) key))
-        cache-key (fn [tenant period rollup time path] (hash path))]
+        cache-key (fn [tenant period rollup time path] path)]
     (reify
       StoreCache
       (put! [this tenant period rollup time path data ttl fn-agg fn-store]
