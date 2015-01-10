@@ -115,4 +115,5 @@
   "Stop a tcp carbon listener"
   [carbon-handle]
   (when carbon-handle
+    (info "Stopping the Carbon server")
     (tc/stop-tcp-server carbon-handle)))
