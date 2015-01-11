@@ -7,7 +7,8 @@
             [qbits.alia                  :as alia]
             [qbits.alia.policy.load-balancing :as alia_lbp]
             [org.spootnik.cyanite.util   :refer [partition-or-time
-                                                 go-forever go-catch
+                                                 go-while
+                                                 go-catch
                                                  counter-inc!
                                                  agg-fn-by-path
                                                  align-time
@@ -172,13 +173,13 @@
       Metricstore
       (channel-for [this]
         (let [ch-p (partition-or-time batch_size ch batch_size 5)]
-          (go-forever
-           (let [payload (<! ch-p)]
-             (if payload
-              (store-payload payload session insert!)
-              (when (not @data-stored?)
-                (info "All data has been stored")
-                (swap! data-stored? (fn [_] true))))))
+          (go-while (not @data-stored?)
+                    (let [payload (<! ch-p)]
+                      (if payload
+                        (store-payload payload session insert!)
+                        (when (not @data-stored?)
+                          (info "All data has been stored")
+                          (swap! data-stored? (fn [_] true))))))
           ch))
       (insert [this ttl data tenant rollup period path time]
         (alia/execute-async
@@ -203,5 +204,5 @@
         (close! ch)
         (while (not @data-stored?)
           (Thread/sleep 1000))
-        (alia/shutdown session)
+        (.close session)
         (info "The store has been down")))))
