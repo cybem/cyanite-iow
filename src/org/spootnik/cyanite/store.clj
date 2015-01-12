@@ -7,14 +7,15 @@
             [qbits.alia                  :as alia]
             [qbits.alia.policy.load-balancing :as alia_lbp]
             [org.spootnik.cyanite.util   :refer [partition-or-time
-                                                 go-forever go-catch
+                                                 go-while
+                                                 go-catch
                                                  counter-inc!
                                                  agg-fn-by-path
                                                  align-time
                                                  now]]
             [clojure.tools.logging       :refer [error info debug]]
             [lamina.core                 :refer [channel receive-all]]
-            [clojure.core.async :as async :refer [<! >! go chan]]
+            [clojure.core.async :as async :refer [<! >! go chan close!]]
             [cheshire.core :as json]
             [qbits.knit :as knit])
   (:import [com.datastax.driver.core
@@ -28,7 +29,8 @@
 (defprotocol Metricstore
   (insert [this ttl data tenant rollup period path time])
   (channel-for [this])
-  (fetch [this agg paths tenant rollup period from to]))
+  (fetch [this agg paths tenant rollup period from to])
+  (shutdown [this]))
 
 ;;
 ;; The following contains necessary cassandra queries. Since
@@ -114,6 +116,27 @@
         futures (doall (map #(knit/future executor (process-path %)) paths))]
     (str "{" (str/join "," (remove nil? (map deref-limiter futures))) "}")))
 
+(defn store-payload
+  [payload session insert!]
+  (try
+    (let [values (map
+                  #(let [{:keys [metric tenant path time rollup period ttl]} %]
+                     (counter-inc! (keyword (str "tenants." tenant ".write_count")) 1)
+                     [(int ttl) [metric] tenant (int rollup) (int period) path time])
+                  payload)]
+      (alia/execute-async
+       session
+       (batch insert! values)
+       {:consistency :any
+        :success (fn [_]
+                   (debug "written batch:" (count values))
+                   (counter-inc! :store.success (count values)))
+        :error (fn [e]
+                 (info "Casandra error: " e)
+                 (counter-inc! :store.error (count values)))}))
+    (catch Exception e
+      (info e "Store processing exception"))))
+
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
    The interval is fixed for now, at 1minute"
@@ -143,32 +166,20 @@
                                        :tcp-no-delay? false}})
                     (alia/connect keyspace))
         insert! (insertq session)
-        executor (knit/executor :cached)]
+        executor (knit/executor :cached)
+        ch (chan chan_size)
+        data-stored? (atom false)]
     (reify
       Metricstore
       (channel-for [this]
-        (let [ch (chan chan_size)
-              ch-p (partition-or-time batch_size ch batch_size 5)]
-          (go-forever
-           (let [payload (<! ch-p)]
-             (try
-               (let [values (map
-                             #(let [{:keys [metric tenant path time rollup period ttl]} %]
-                                (counter-inc! (keyword (str "tenants." tenant ".write_count")) 1)
-                                [(int ttl) [metric] tenant (int rollup) (int period) path time])
-                             payload)]
-                 (alia/execute-async
-                  session
-                  (batch insert! values)
-                  {:consistency :any
-                   :success (fn [_]
-                              (debug "written batch:" (count values))
-                              (counter-inc! :store.success (count values)))
-                   :error (fn [e]
-                            (info "Casandra error: " e)
-                            (counter-inc! :store.error (count values)))}))
-               (catch Exception e
-                 (info e "Store processing exception")))))
+        (let [ch-p (partition-or-time batch_size ch batch_size 5)]
+          (go-while (not @data-stored?)
+                    (let [payload (<! ch-p)]
+                      (if payload
+                        (store-payload payload session insert!)
+                        (when (not @data-stored?)
+                          (info "All data has been stored")
+                          (swap! data-stored? (fn [_] true))))))
           ch))
       (insert [this ttl data tenant rollup period path time]
         (alia/execute-async
@@ -187,4 +198,11 @@
             (json/generate-string {:from from
                                    :to to
                                    :step rollup
-                                   :series {}})))))))
+                                   :series {}}))))
+      (shutdown [this]
+        (info "Shutting down the store...")
+        (close! ch)
+        (while (not @data-stored?)
+          (Thread/sleep 1000))
+        (.close session)
+        (info "The store has been down")))))

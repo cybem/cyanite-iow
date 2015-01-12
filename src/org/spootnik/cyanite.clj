@@ -5,12 +5,15 @@
             [org.spootnik.cyanite.http        :as http]
             [org.spootnik.cyanite.config      :as config]
             [clojure.tools.cli                :refer [cli]]
+            [clojure.tools.logging :refer [error info debug]]
+            [beckon]
             [org.spootnik.cyanite.es-path]
+            [org.spootnik.cyanite.store :as store]
             [org.spootnik.cyanite.store_cache :as cache]))
 
-(require 'beckon)
-
 (set! *warn-on-reflection* true)
+
+(def ^:const shutdown-wait-time 5)
 
 (defn get-cli
   "Call cli parsing with our known options"
@@ -25,10 +28,22 @@
         (println "Could not parse arguments: " (.getMessage e)))
       (System/exit 1))))
 
+(defn shutdown
+  [carbon-handle store store-cache]
+  (carbon/stop carbon-handle)
+  (when store-cache
+    (cache/flush! store-cache))
+  (store/shutdown store)
+  (info "Shutting down agents")
+  (shutdown-agents)
+  (info (format "Sleeping for %s seconds" shutdown-wait-time))
+  (Thread/sleep (* shutdown-wait-time 1000))
+  (info "Exiting")
+  (System/exit 0))
+
 (defn install-flusher
- [{:keys [store-cache]} carbon-handle]
- (reset! (beckon/signal-atom "TERM") [#(carbon/stop carbon-handle)
-                                      #(cache/flush! store-cache)]))
+ [{:keys [store store-cache]} carbon-handle]
+ (reset! (beckon/signal-atom "TERM") [#(shutdown carbon-handle store store-cache)]))
 
 (defn -main
   "Our main function, parses args and launches appropriate services"

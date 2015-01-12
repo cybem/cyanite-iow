@@ -5,15 +5,19 @@
             [clojure.tools.logging :refer [debug info warn error]]
             [clojure.string :as str]))
 
-(defmacro go-forever
-  [body]
+(defmacro go-while
+  [test body]
   `(go
-     (while true
+     (while ~test
        (try
          ~body
          (catch Exception e
            (error e (or (.getMessage e)
                         "Exception while processing channel message")))))))
+
+(defmacro go-forever
+  [body]
+  `(go-while true ~body))
 
 (defn map-vals
   "Given a map and a function, returns the map resulting from applying
