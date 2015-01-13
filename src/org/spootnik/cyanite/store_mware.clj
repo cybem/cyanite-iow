@@ -1,11 +1,11 @@
 (ns org.spootnik.cyanite.store_mware
   "Caching facility for Cyanite"
   (:require [clojure.string :as str]
-            [clojure.core.async :as async :refer [<! >! >!! go chan]]
+            [clojure.core.async :as async :refer [<! >! >!! go chan close!]]
             [clojure.tools.logging :refer [error info debug]]
             [org.spootnik.cyanite.store :as store]
             [org.spootnik.cyanite.store_cache :as cache]
-            [org.spootnik.cyanite.util :refer [go-forever aggregate-with]]))
+            [org.spootnik.cyanite.util :refer [go-while aggregate-with]]))
 
 (defn store-middleware
   [{:keys [store]}]
@@ -17,7 +17,8 @@
     (insert [this ttl data tenant rollup period path time]
       (store/insert this ttl data tenant rollup period path time))
     (fetch [this agg paths tenant rollup period from to]
-      (store/fetch store agg paths tenant rollup period from to))))
+      (store/fetch store agg paths tenant rollup period from to))
+    (shutdown [this])))
 
 (defn- store-chan
   [chan tenant period rollup time path data ttl]
@@ -52,17 +53,29 @@
   (let [min-rollup (:rollup (first (sort-by :rollup rollups)))
         fn-store (store-agg-fn store-cache (store/channel-for store) rollups
                                min-rollup)
-        fn-put! (partial put! min-rollup store-cache fn-store)]
+        fn-put! (partial put! min-rollup store-cache fn-store)
+        ch (chan chan_size)
+        data-processed? (atom false)]
     (reify
       store/Metricstore
       (channel-for [this]
-        (let [ch (chan chan_size)]
-          (go-forever
-           (let [data (<! ch)
-                 {:keys [metric tenant path time rollup period ttl]} data]
-             (fn-put! tenant period rollup time path metric ttl)))
-          ch))
+        (go-while (not @data-processed?)
+                  (let [data (<! ch)]
+                    (if data
+                      (let [{:keys [metric tenant path time rollup period ttl]} data]
+                        (fn-put! tenant period rollup time path metric ttl))
+                      (when (not @data-processed?)
+                        (info "All data has been stored in the cache")
+                        (swap! data-processed? (fn [_] true))))))
+        ch)
       (insert [this ttl data tenant rollup period path time]
         (fn-put! tenant period rollup time path data ttl))
       (fetch [this agg paths tenant rollup period from to]
-        (store/fetch store agg paths tenant rollup period from to)))))
+        (store/fetch store agg paths tenant rollup period from to))
+      (shutdown [this]
+        (info "Shutting down the store middleware...")
+        (close! ch)
+        (while (not @data-processed?)
+          (Thread/sleep 100))
+        (cache/flush! store-cache)
+        (info "The store middleware has been down")))))

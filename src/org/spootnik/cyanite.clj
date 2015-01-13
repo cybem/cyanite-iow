@@ -29,10 +29,10 @@
       (System/exit 1))))
 
 (defn shutdown
-  [carbon-handle store store-cache]
+  [carbon-handle store store-middleware]
   (carbon/stop carbon-handle)
-  (when store-cache
-    (cache/flush! store-cache))
+  (when store-middleware
+    (store/shutdown store-middleware))
   (store/shutdown store)
   (info "Shutting down agents")
   (shutdown-agents)
@@ -42,8 +42,9 @@
   (System/exit 0))
 
 (defn install-flusher
- [{:keys [store store-cache]} carbon-handle]
- (reset! (beckon/signal-atom "TERM") [#(shutdown carbon-handle store store-cache)]))
+ [{:keys [store store-middleware]} carbon-handle]
+ (reset! (beckon/signal-atom "TERM")
+         [#(shutdown carbon-handle store store-middleware)]))
 
 (defn -main
   "Our main function, parses args and launches appropriate services"
