@@ -203,6 +203,6 @@
         (info "Shutting down the store...")
         (close! ch)
         (while (not @data-stored?)
-          (Thread/sleep 1000))
+          (Thread/sleep 100))
         (.close session)
         (info "The store has been down")))))
