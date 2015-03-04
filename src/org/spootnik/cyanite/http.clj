@@ -24,11 +24,17 @@
   (fn [request]
     (handler (assoc request :local-params params))))
 
+(defn- log-request
+  [title request]
+  (info title (if-let [json-params (:json-params request)]
+                json-params
+                (:query-string request))))
+
 (defn paths-handler [response-channel {{:keys [query tenant]}  :params
                                        {:keys [index]} :local-params
                                        :as request}]
   (debug "query now: " query)
-  (info "Paths request:" (str (:uri request) "?" (:query-string request)))
+  (log-request "Paths request:" request)
   (enqueue
     response-channel
     (try
@@ -64,7 +70,7 @@
                        {{:keys [index store rollup-finder]} :local-params
                         {:keys [from to path agg tenant]} :params :as request}]
   (debug "fetching paths: " path)
-  (info "Metrics request:" (str (:uri request) "?" (:query-string request)))
+  (log-request "Metrics request:" request)
   (enqueue
    response-channel
     (try
