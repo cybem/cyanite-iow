@@ -27,6 +27,7 @@
 (defn paths-handler [response-channel {{:keys [query tenant]}  :params
                                        {:keys [index]} :local-params}]
   (debug "query now: " query)
+  (info (format "Paths request: tenant: %s, query: %s" tenant query))
   (enqueue
     response-channel
     (try
@@ -62,6 +63,8 @@
                        {{:keys [index store rollup-finder]} :local-params
                         {:keys [from to path agg tenant]} :params :as request}]
   (debug "fetching paths: " path)
+  (info (format "Metrics request: tenant: %s, path: %s, from: %s, to: %s, agg: %s"
+                tenant path from to agg))
   (enqueue
    response-channel
     (try
