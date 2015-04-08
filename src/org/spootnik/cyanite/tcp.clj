@@ -41,7 +41,7 @@
       true)))
 
 (defn boot-strap-server
-  [putter ^Integer readtimeout]
+  [putter ^Integer readtimeout ^Integer connecttimeout]
   (let [sd (new StringDecoder (CharsetUtil/UTF_8))]
       (doto
           (ServerBootstrap.)
@@ -55,14 +55,14 @@
                                                   sd
                                                   (new ReadTimeoutHandler readtimeout)
                                                   putter])))))
-        (.option ChannelOption/SO_BACKLOG (int 128))
-        (.option ChannelOption/CONNECT_TIMEOUT_MILLIS (int 1000))
+        (.option ChannelOption/CONNECT_TIMEOUT_MILLIS connecttimeout)
         (.childOption ChannelOption/SO_KEEPALIVE true))))
 
 (defn start-tcp-server
-  [{:keys [port host readtimeout response-channel] :as options}]
+  [{:keys [port host readtimeout connecttimeout response-channel]
+    :as options}]
   (let [putter (channel-putter response-channel)
-        server (boot-strap-server putter readtimeout)
+        server (boot-strap-server putter readtimeout connecttimeout)
         f (-> server (.bind port))]
     (-> f .channel .closeFuture)))
 
