@@ -55,7 +55,7 @@
                                                   sd
                                                   (new ReadTimeoutHandler readtimeout)
                                                   putter])))))
-        (.option ChannelOption/CONNECT_TIMEOUT_MILLIS connecttimeout)
+        (.option ChannelOption/CONNECT_TIMEOUT_MILLIS (int connecttimeout))
         (.childOption ChannelOption/SO_KEEPALIVE true))))
 
 (defn start-tcp-server
