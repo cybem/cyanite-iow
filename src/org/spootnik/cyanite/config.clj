@@ -148,12 +148,16 @@
 (defn load-aggregator-config [path]
   (try
     (info "Loading aggregator rules from: " path)
-    (doseq [[k v] (parse-string (slurp path) false)] (set-aggregator-patterns! k v))))
+    (doseq [[k v] (parse-string (slurp path) false)] (set-aggregator-patterns! k v))
+    (catch Exception e
+      (error "Aggregator rules error:" e))))
 
 (defn load-blacklist-config [path]
   (try
     (info "Loading blacklist rules from: " path)
-    (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))))
+    (doseq [[k v] (parse-string (slurp path) false)] (set-blacklist-patterns! k v))
+    (catch Exception e
+      (error "Blacklist rules processing error:" e))))
 
 (defn config-instance
   [config entity default & [deps]]
@@ -184,4 +188,5 @@
         (update-in [:blacklist] (partial merge default-blacklist))
         (config-instance :rollup-finder default-rollup-finder [:rollups]))
     (catch Exception e
-      (info e "Config processing exception"))))
+      (error "Config processing exception:" e)
+      (System/exit 1))))
