@@ -49,20 +49,24 @@
 (defn -main
   "Our main function, parses args and launches appropriate services"
   [& args]
-  (let [[{:keys [path help quiet]} args banner] (get-cli args)]
-    (when help
-      (println banner)
-      (System/exit 0))
-    (let [{:keys [carbon http aggregator blacklist] :as config} (config/init path quiet)]
-      (let [load-configs
-            (fn []
-              (when (:enabled aggregator)
-                (config/load-aggregator-config (:path aggregator)))
-              (when (:enabled blacklist)
-                (config/load-blacklist-config (:path blacklist))))]
-        (reset! (beckon/signal-atom "HUP") #{load-configs})
-        (load-configs))
-      (install-flusher config (when (:enabled carbon) (carbon/start config)))
-      (when (:enabled http)
-        (http/start config))))
-  nil)
+  (try
+    (let [[{:keys [path help quiet]} args banner] (get-cli args)]
+      (when help
+        (println banner)
+        (System/exit 0))
+      (let [{:keys [carbon http aggregator blacklist] :as config} (config/init path quiet)]
+        (let [load-configs
+              (fn []
+                (when (:enabled aggregator)
+                  (config/load-aggregator-config (:path aggregator)))
+                (when (:enabled blacklist)
+                  (config/load-blacklist-config (:path blacklist))))]
+          (reset! (beckon/signal-atom "HUP") #{load-configs})
+          (load-configs))
+        (install-flusher config (when (:enabled carbon) (carbon/start config)))
+        (when (:enabled http)
+          (http/start config))))
+    nil
+    (catch Exception e
+      (error "Unhandled exception:" e)
+      (System/exit 1))))
