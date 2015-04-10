@@ -1,4 +1,4 @@
-(defproject org.spootnik/cyanite "0.1.3-30iow1"
+(defproject org.spootnik/cyanite "0.1.3-31iow1"
   :description "Alternative storage backend for graphite, backed by cassandra"
   :url "https://github.com/pyr/cyanite"
   :license {:name "MIT License"
@@ -24,6 +24,7 @@
                  [io.netty/netty-all                        "5.0.0.Alpha2"]
                  [org.clojure/core.async                    "0.1.278.0-76b25b-alpha"]
                  [http-kit                                  "2.1.19"]
+                 [com.climate/claypoole                     "1.0.0"]
                  [log4j/log4j                               "1.2.17"
                   :exclusions [javax.mail/mail
                                javax.jms/jms
