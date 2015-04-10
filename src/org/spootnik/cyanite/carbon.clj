@@ -70,7 +70,7 @@
         )
       )
     (catch Exception e
-      (info "Exception for metric [" input "] : " e))))
+      (error "Exception for metric [" input "] : " e))))
 
 (defn process-metrics
   [rollups insertch indexch metrics]
@@ -92,7 +92,7 @@
           (try
             (cp/future tpool (process-metrics rollups insertch indexch metrics))
             (catch Exception e
-              (info "Exception for metric [" metrics "] : " e))))))))
+              (error "Exception for metric [" metrics "] : " e))))))))
 
 (defn start
   "Start a tcp carbon listener"
