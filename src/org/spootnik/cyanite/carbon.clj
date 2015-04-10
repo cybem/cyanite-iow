@@ -5,6 +5,7 @@
             [org.spootnik.cyanite.store :as store]
             [org.spootnik.cyanite.path  :as path]
             [org.spootnik.cyanite.tcp   :as tc]
+            [com.climate.claypoole      :as cp]
             [org.spootnik.cyanite.util  :refer [partition-or-time get-aggregator-patterns
                                                 get-blacklist-patterns
                                                 counter-get counter-list
@@ -71,21 +72,25 @@
     (catch Exception e
       (info "Exception for metric [" input "] : " e))))
 
+(defn process-metrics
+  [rollups insertch indexch metrics]
+  (counter-inc! :metrics_received (count metrics))
+  (doseq [metric metrics]
+    (let [formed (remove nil? (formatter rollups metric))]
+      (doseq [f formed]
+        (>!! insertch f))
+      (doseq [p (distinct (map (juxt :path :tenant) formed))]
+        (>!! indexch p)))))
+
 (defn format-processor
   "Send each metric over to the cassandra store"
-  [chan indexch rollups insertch]
+  [chan indexch rollups insertch tpool]
   (go
     (let [input (partition-or-time 1000 chan 500 5)]
       (while true
         (let [metrics (<! input)]
           (try
-            (counter-inc! :metrics_received (count metrics))
-            (doseq [metric metrics]
-              (let [formed (remove nil? (formatter rollups metric))]
-                (doseq [f formed]
-                  (>! insertch f))
-                (doseq [p (distinct (map (juxt :path :tenant) formed))]
-                  (>! indexch p))))
+            (cp/future tpool (process-metrics rollups insertch indexch metrics))
             (catch Exception e
               (info "Exception for metric [" metrics "] : " e))))))))
 
@@ -95,7 +100,8 @@
   (let [indexch (path/channel-for index)
         insertch (store/channel-for store-middleware)
         chan (chan 100000)
-        handler (format-processor chan indexch (:rollups carbon) insertch)]
+        tpool (cp/threadpool (:threadpool_size carbon (cp/ncpus)))
+        handler (format-processor chan indexch (:rollups carbon) insertch tpool)]
     (info "starting carbon handler: " carbon)
     (go
       (let [{:keys [hostname tenant interval console]} stats]
