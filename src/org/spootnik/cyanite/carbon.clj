@@ -74,13 +74,16 @@
 
 (defn process-metrics
   [rollups insertch indexch metrics]
-  (counter-inc! :metrics_received (count metrics))
-  (doseq [metric metrics]
-    (let [formed (remove nil? (formatter rollups metric))]
-      (doseq [f formed]
-        (>!! insertch f))
-      (doseq [p (distinct (map (juxt :path :tenant) formed))]
-        (>!! indexch p)))))
+  (try
+    (counter-inc! :metrics_received (count metrics))
+    (doseq [metric metrics]
+      (let [formed (remove nil? (formatter rollups metric))]
+        (doseq [f formed]
+          (>!! insertch f))
+        (doseq [p (distinct (map (juxt :path :tenant) formed))]
+          (>!! indexch p))))
+    (catch Exception e
+      (error "Exception in metric processor for metric [" metrics "] : " e))))
 
 (defn format-processor
   "Send each metric over to the cassandra store"
@@ -92,7 +95,8 @@
           (try
             (cp/future tpool (process-metrics rollups insertch indexch metrics))
             (catch Exception e
-              (error "Exception for metric [" metrics "] : " e))))))))
+              (error "Exception in format processor for metric ["
+                     metrics "] : " e))))))))
 
 (defn start
   "Start a tcp carbon listener"
