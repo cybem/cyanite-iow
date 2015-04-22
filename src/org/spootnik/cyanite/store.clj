@@ -12,7 +12,8 @@
                                                  counter-inc!
                                                  agg-fn-by-path
                                                  align-time
-                                                 now]]
+                                                 now
+                                                 too-many-paths-ex]]
             [clojure.tools.logging       :refer [error info debug]]
             [lamina.core                 :refer [channel receive-all]]
             [clojure.core.async :as async :refer [<! >! go chan close!]]
@@ -140,11 +141,12 @@
 (defn cassandra-metric-store
   "Connect to cassandra and start a path fetching thread.
    The interval is fixed for now, at 1minute"
-  [{:keys [keyspace cluster hints chan_size batch_size]
+  [{:keys [keyspace cluster hints chan_size batch_size query_paths_threshold]
     :or   {hints {:replication {:class "SimpleStrategy"
                                 :replication_factor 1}}
            chan_size 10000
-           batch_size 100}}]
+           batch_size 100
+           query_paths_threshold nil}}]
   (info "creating cassandra metric store")
   (let [cluster (if (sequential? cluster) cluster [cluster])
         session (-> (alia/cluster
@@ -188,6 +190,8 @@
          {:values [ttl data tenant rollup period path time]}))
       (fetch [this agg paths tenant rollup period from to]
         (debug "fetching paths from store: " paths tenant rollup period from to)
+        (when (and query_paths_threshold (> (count paths) query_paths_threshold))
+          (throw too-many-paths-ex))
         (let [min-point  (align-time from rollup)
               max-point  (align-time (apply min [to (now)]) rollup)]
           (if-let [series (and (seq paths)

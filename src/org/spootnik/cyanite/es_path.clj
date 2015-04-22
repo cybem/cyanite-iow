@@ -3,7 +3,9 @@
   (:require [clojure.tools.logging :refer [error info debug]]
             [clojure.string        :refer [split] :as str]
             [org.spootnik.cyanite.path :refer [Pathstore]]
-            [org.spootnik.cyanite.util :refer [partition-or-time distinct-by go-forever go-catch counter-inc!]]
+            [org.spootnik.cyanite.util :refer [partition-or-time distinct-by
+                                               go-forever go-catch counter-inc!
+                                               too-many-paths-ex]]
             [org.spootnik.cyanite.es-client :as internal-client]
             [clojurewerkz.elastisch.native :as esn]
             [clojurewerkz.elastisch.native.index :as esni]
@@ -12,6 +14,7 @@
             [clojurewerkz.elastisch.rest.index :as esri]
             [clojurewerkz.elastisch.rest.document :as esrd]
             [clojurewerkz.elastisch.rest.bulk :as esrb]
+            [clojurewerkz.elastisch.rest.response :as esrr]
             [clojure.core.async :as async :refer [<! >! go chan]]))
 
 (def ES_DEF_TYPE "path")
@@ -98,14 +101,14 @@
 
 (defn search
   "search for a path"
-  [query scroll tenant path leafs-only]
+  [query scroll tenant path leafs-only & [threshold]]
   (let [res (query :query (build-es-query path tenant leafs-only)
                    :size 100
                    :search_type "query_then_fetch"
-                   :scroll "1m")
-        hits (scroll res)]
-    (map #(:_source %) hits)))
-
+                   :scroll "1m")]
+    (if (and threshold (> (esrr/total-hits res) threshold))
+      (throw too-many-paths-ex)
+      (map #(:_source %) (scroll res)))))
 
 (defn add-path
   "write a path into elasticsearch if it doesn't exist"
@@ -138,8 +141,9 @@
      #(debug "Failed bulk update, full response: " %))))
 
 (defn es-rest
-  [{:keys [index url chan_size batch_size]
-    :or {index "cyanite_paths" url "http://localhost:9200" chan_size 10000 batch_size 300}}]
+  [{:keys [index url chan_size batch_size query_paths_threshold]
+    :or {index "cyanite_paths" url "http://localhost:9200" chan_size 10000
+         batch_size 300 query_paths_threshold nil}}]
   (let [full-path-cache (atom #{})
         conn (esr/connect url)
         dontexistsfn (dont-exist conn index ES_DEF_TYPE)
@@ -188,9 +192,9 @@
              (bulkupdatefn ps)))
           es-chan))
       (prefixes [this tenant path]
-                (search queryfn scrollfn tenant path false))
+        (search queryfn scrollfn tenant path false query_paths_threshold))
       (lookup [this tenant path]
-              (map :path (search queryfn scrollfn tenant path true))))))
+        (map :path (search queryfn scrollfn tenant path true query_paths_threshold))))))
 
 (defn es-native
   [{:keys [index host port cluster_name chan_size]

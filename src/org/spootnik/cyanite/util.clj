@@ -206,3 +206,5 @@
   (if-let [[_ method] (re-find agg-path-re path)]
     (get agg-fn-map method)
     (get agg-fn-map "avg")))
+
+(def too-many-paths-ex (Exception. "Too many paths"))
