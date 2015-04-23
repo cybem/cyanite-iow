@@ -190,8 +190,9 @@
          {:values [ttl data tenant rollup period path time]}))
       (fetch [this agg paths tenant rollup period from to]
         (debug "fetching paths from store: " paths tenant rollup period from to)
-        (when (and query_paths_threshold (> (count paths) query_paths_threshold))
-          (throw too-many-paths-ex))
+        (let [paths-count (count paths)]
+          (when (and query_paths_threshold (> paths-count query_paths_threshold))
+            (throw (too-many-paths-ex :metric-fetch paths-count))))
         (let [min-point  (align-time from rollup)
               max-point  (align-time (apply min [to (now)]) rollup)]
           (if-let [series (and (seq paths)

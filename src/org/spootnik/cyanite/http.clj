@@ -12,12 +12,14 @@
             [org.spootnik.cyanite.store :as store]
             [org.spootnik.cyanite.rollup :as rollup]
             [org.spootnik.cyanite.path  :as path]
-            [org.spootnik.cyanite.util  :refer [counter-inc! now]]
+            [org.spootnik.cyanite.util  :refer [counter-inc! now
+                                                process-too-many-paths-ex]]
             [cheshire.core              :as json]
             [clojure.string             :as str]
             [lamina.core                :refer [enqueue]]
             [clojure.string             :refer [lower-case]]
-            [clojure.tools.logging      :refer [info error debug]]))
+            [clojure.tools.logging      :refer [info error debug]]
+            [org.spootnik.cyanite.util :as util]))
 
 (defn wrap-local-params [handler params]
   "Adds additional parameters to request"
@@ -46,6 +48,7 @@
         (let [{:keys [status body suppress?]} (ex-data e)]
           (when-not suppress?
             (error e "could not process request"))
+          (util/process-too-many-paths-ex e)
           {:status (or status 500)
            :headers {"Content-Type" "application/json"}
            :body    (json/generate-string
@@ -91,6 +94,7 @@
         (let [{:keys [status body suppress?]} (ex-data e)]
           (when-not suppress?
             (error e "could not process request"))
+          (util/process-too-many-paths-ex e)
           {:status (or status 500)
            :headers {"Content-Type" "application/json"}
            :body    (json/generate-string

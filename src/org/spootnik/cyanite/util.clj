@@ -207,4 +207,17 @@
     (get agg-fn-map method)
     (get agg-fn-map "avg")))
 
-(def too-many-paths-ex (Exception. "Too many paths"))
+(defmacro too-many-paths-ex
+  [location paths-count]
+  `(ex-info (str "Too many paths: " ~paths-count)
+            {:type :too-many-paths-ex :location ~location
+             :paths-count ~paths-count :suppress? true}))
+
+(defn process-too-many-paths-ex
+  [e]
+  (let [data (ex-data e)]
+    (when (= (:type data) :too-many-paths-ex)
+      (let [request-type (get {:path-search "paths"
+                               :metric-fetch "metrics"} (:location data))]
+        (info e (format "Could not process %s request. Too many paths: %s"
+                        request-type (:paths-count data)))))))

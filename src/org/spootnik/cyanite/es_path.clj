@@ -105,9 +105,10 @@
   (let [res (query :query (build-es-query path tenant leafs-only)
                    :size 100
                    :search_type "query_then_fetch"
-                   :scroll "1m")]
-    (if (and threshold (> (esrr/total-hits res) threshold))
-      (throw too-many-paths-ex)
+                   :scroll "1m")
+        paths-count (esrr/total-hits res)]
+    (if (and threshold (>  threshold))
+      (throw (too-many-paths-ex :path-search paths-count))
       (map #(:_source %) (scroll res)))))
 
 (defn add-path
