@@ -107,7 +107,7 @@
                    :search_type "query_then_fetch"
                    :scroll "1m")
         paths-count (esrr/total-hits res)]
-    (if (and threshold (>  threshold))
+    (if (and threshold (> paths-count threshold))
       (throw (too-many-paths-ex :path-search paths-count))
       (map #(:_source %) (scroll res)))))
 
