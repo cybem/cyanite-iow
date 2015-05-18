@@ -1,7 +1,7 @@
 (ns org.spootnik.cyanite.util
   (:require [clojure.core.async :as async :refer [alt! chan >! close! go
                                                   timeout >!! go-loop
-                                                  dropping-buffer]]
+                                                  dropping-buffer alts!]]
             [clojure.tools.logging :refer [debug info warn error]]
             [clojure.string :as str]))
 
@@ -11,9 +11,9 @@
      (while ~test
        (try
          ~body
-         (catch Exception e
-           (error e (or (.getMessage e)
-                        "Exception while processing channel message")))))))
+         (catch Exception e#
+           (error e# (or (.getMessage e#)
+                         "Exception while processing channel message")))))))
 
 (defmacro go-forever
   [body]
@@ -90,9 +90,9 @@
   `(go
      (try
        ~@body
-       (catch Exception e
-         (error e (or (.getMessage e)
-                      "Exception while processing channel message"))))))
+       (catch Exception e#
+         (error e# (or (.getMessage e#)
+                       "Exception while processing channel message"))))))
 
 (defn partition-or-time
   "Returns a channel that will either contain vectors of n items taken from ch or
