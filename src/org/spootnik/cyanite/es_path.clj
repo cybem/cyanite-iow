@@ -114,13 +114,13 @@
          (throw (too-many-paths-ex :path-search paths-count))
          (map #(:_source %) (scroll res))))
      (catch [:status 400] {:keys [body]}
-       (warn (:throwable &throw-context)
-             (str "Elasticsearch returns error 400 for the query: " es-query))
-       [])
+       (let [err (str "Elasticsearch returns error 400 for the query: " es-query)]
+         (warn (:throwable &throw-context) err)
+         {:error err}))
      (catch Object _
-       (error (:throwable &throw-context)
-              ("Unexpected error for the Elasticsearch query: " es-query))
-       []))))
+       (let [err (str "Unexpected error for the Elasticsearch query: " es-query)]
+         (error (:throwable &throw-context) err)
+         {:error err})))))
 
 (defn add-path
   "write a path into elasticsearch if it doesn't exist"
