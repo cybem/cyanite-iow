@@ -219,5 +219,5 @@
     (when (= (:type data) :too-many-paths-ex)
       (let [request-type (get {:path-search "paths"
                                :metric-fetch "metrics"} (:location data))]
-        (info e (format "Could not process %s request. Too many paths: %s"
+        (warn e (format "Could not process %s request. Too many paths: %s"
                         request-type (:paths-count data)))))))

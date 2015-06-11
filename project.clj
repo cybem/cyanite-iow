@@ -25,6 +25,7 @@
                  [org.clojure/core.async                    "0.1.278.0-76b25b-alpha"]
                  [http-kit                                  "2.1.19"]
                  [com.climate/claypoole                     "1.0.0"]
+                 [slingshot                                 "0.12.2"]
                  [log4j/log4j                               "1.2.17"
                   :exclusions [javax.mail/mail
                                javax.jms/jms

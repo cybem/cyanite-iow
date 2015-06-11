@@ -1,6 +1,6 @@
 (ns org.spootnik.cyanite.es_path
   "Implements a path store which tracks metric names backed by elasticsearch"
-  (:require [clojure.tools.logging :refer [error info debug]]
+  (:require [clojure.tools.logging :refer [error warn info debug]]
             [clojure.string        :refer [split] :as str]
             [org.spootnik.cyanite.path :refer [Pathstore]]
             [org.spootnik.cyanite.util :refer [partition-or-time distinct-by
@@ -15,7 +15,8 @@
             [clojurewerkz.elastisch.rest.document :as esrd]
             [clojurewerkz.elastisch.rest.bulk :as esrb]
             [clojurewerkz.elastisch.rest.response :as esrr]
-            [clojure.core.async :as async :refer [<! >! go chan]]))
+            [clojure.core.async :as async :refer [<! >! go chan]]
+            [slingshot.slingshot :refer [try+ throw+]]))
 
 (def ES_DEF_TYPE "path")
 (def ES_TYPE_MAP {ES_DEF_TYPE {:_all { :enabled false }
@@ -102,14 +103,24 @@
 (defn search
   "search for a path"
   [query scroll tenant path leafs-only & [threshold]]
-  (let [res (query :query (build-es-query path tenant leafs-only)
-                   :size 100
-                   :search_type "query_then_fetch"
-                   :scroll "1m")
-        paths-count (esrr/total-hits res)]
-    (if (and threshold (> paths-count threshold))
-      (throw (too-many-paths-ex :path-search paths-count))
-      (map #(:_source %) (scroll res)))))
+  (let [es-query (build-es-query path tenant leafs-only)]
+    (try+
+     (let [res (query :query es-query
+                      :size 100
+                      :search_type "query_then_fetch"
+                      :scroll "1m")
+           paths-count (esrr/total-hits res)]
+       (if (and threshold (> paths-count threshold))
+         (throw (too-many-paths-ex :path-search paths-count))
+         (map #(:_source %) (scroll res))))
+     (catch [:status 400] {:keys [body]}
+       (warn (:throwable &throw-context)
+             (str "Elasticsearch returns error 400 for the query: " es-query))
+       [])
+     (catch Object _
+       (error (:throwable &throw-context)
+              ("Unexpected error for the Elasticsearch query: " es-query))
+       []))))
 
 (defn add-path
   "write a path into elasticsearch if it doesn't exist"
