@@ -116,10 +116,6 @@
      (catch [:status 400] {:keys [body]}
        (let [err (str "Elasticsearch returns error 400 for the query: " es-query)]
          (warn (:throwable &throw-context) err)
-         {:error err}))
-     (catch Object _
-       (let [err (str "Unexpected error for the Elasticsearch query: " es-query)]
-         (error (:throwable &throw-context) err)
          {:error err})))))
 
 (defn add-path
