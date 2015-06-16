@@ -3,7 +3,8 @@
                                                   timeout >!! go-loop
                                                   dropping-buffer]]
             [clojure.tools.logging :refer [debug info warn error]]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.java.jmx :as jmx]))
 
 (defmacro go-while
   [test body]
@@ -44,11 +45,15 @@
 
 (comment "Counters are predefined to fill graphs with 0s")
 
-(def counters (atom { :index.create 0
-                      :index.get_error 0
-                      :store.success 0
-                      :store.error 0
-                      :metrics_received 0}))
+(def def-counters {:index.create 0
+                   :index.get_error 0
+                   :store.success 0
+                   :store.error 0
+                   :metrics_received 0})
+
+(def counters (atom def-counters))
+
+(def counters-jmx (atom def-counters))
 
 (defn counter-get [key]
   (or (get @counters key) 0))
@@ -61,6 +66,16 @@
 
 (defn counters-reset! []
   (reset! counters (into {} (map (fn [[k _]] {k 0}) @counters))))
+
+(defn counters-init-jmx
+  []
+  (-> counters-jmx
+      jmx/create-bean
+      (jmx/register-mbean "net.iponweb.cyanite.service:type=Stats")))
+
+(defn counters-to-jmx!
+  []
+  (swap! counters-jmx (fn [_] @counters)))
 
 (comment "Aggregation config is an atom map {tenant {regex-match regex-replace ...} tenant2 {regex-match regex-replace ...}}")
 

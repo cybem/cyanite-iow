@@ -10,6 +10,9 @@
                                                 get-blacklist-patterns
                                                 counter-get counter-list
                                                 counters-reset! counter-inc!
+                                                counters-init-jmx
+                                                counters-to-jmx!
+                                                counters-jmx
                                                 go-forever]]
             [clojure.tools.logging        :refer [info debug]]
             [gloss.core                   :refer [string]]
@@ -107,6 +110,7 @@
         tpool (cp/threadpool (:threadpool_size carbon (cp/ncpus)))
         handler (format-processor chan indexch (:rollups carbon) insertch tpool)]
     (info "starting carbon handler: " carbon)
+    (counters-init-jmx)
     (go
       (let [{:keys [hostname tenant interval console]} stats]
         (while true
@@ -117,6 +121,7 @@
                                                (counter-get k)
                                                (quot (System/currentTimeMillis) 1000)
                                                tenant])))
+          (counters-to-jmx!)
           (counters-reset!))))
     (tc/start-tcp-server
      (merge carbon {:response-channel chan}))))
