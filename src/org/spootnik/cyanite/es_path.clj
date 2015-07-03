@@ -72,7 +72,7 @@
   [path]
   (-> path
       ;; Wildcards
-      (str/replace #"\.|\*" {"." "\\." "*" ".*" })
+      (str/replace #"\.|\*|\?" {"." "\\." "*" ".*" "?" ".?"})
       ;; Lists
       (str/replace #"\{|\}|," {"{" "(" "}" ")" "," "|"})
       ;; Ranges
